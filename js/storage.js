@@ -1,7 +1,7 @@
 /* O Tempo Vale — Persistência demonstrativa (localStorage) */
 import { seedData } from './data.js';
 
-const KEY = 'otempoVale_v1';
+const KEY = 'colabre_v1';
 
 export function loadDB() {
   try {

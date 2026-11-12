@@ -1,19 +1,19 @@
-/* O Tempo Vale - bundle classico (funciona abrindo index.html direto, sem servidor) */
+/* Colabre - bundle classico (funciona abrindo index.html direto, sem servidor) */
 (function(){
 "use strict";
-/* O Tempo Vale — Dados demonstrativos (seed) */
+/* Colabre — Dados demonstrativos (seed) */
 const DEMO_USER_ID = 'u1';
 
 function seedData() {
   const users = [
-    { id:'u1', name:'Marina Santos', firstName:'Marina', email:'demo@tempovale.com', password:'123456', color:'#3D5145', bio:'Professora de inglês e apaixonada por projetos comunitários. Gosto de compartilhar conhecimento e aprender com a vizinhança.', location:'Jardim Aurora', skills:['Inglês','Educação','Organização de eventos'], hoursShared:14, activitiesCompleted:9, peopleHelped:12, ratingAvg:4.9, ratingsCount:8, joinedAt:'2025-08-10', availability:'Fins de semana e quartas à tarde', level:'Participante ativo' },
-    { id:'u2', name:'Carlos Mendes', firstName:'Carlos', email:'carlos@exemplo.com', password:'123456', color:'#CC5500', bio:'Técnico em manutenção e eletricidade. Ajudo com pequenos reparos e ensino básico de ferramentas.', location:'Centro', skills:['Manutenção','Eletricidade','Reparos domésticos'], hoursShared:22, activitiesCompleted:14, peopleHelped:16, ratingAvg:4.8, ratingsCount:11, joinedAt:'2025-06-02', availability:'Segundas e sextas', level:'Colaborador' },
-    { id:'u3', name:'Juliana Costa', firstName:'Juliana', email:'juliana@exemplo.com', password:'123456', color:'#7A5C3E', bio:'Estudante de matemática. Dou aulas de reforço e ajudo com tarefas escolares.', location:'Vila Esperança', skills:['Matemática','Reforço escolar','Ensino'], hoursShared:10, activitiesCompleted:7, peopleHelped:9, ratingAvg:5.0, ratingsCount:6, joinedAt:'2025-09-14', availability:'Terças e quintas à noite', level:'Colaborador' },
-    { id:'u4', name:'Roberto Almeida', firstName:'Roberto', email:'roberto@exemplo.com', password:'123456', color:'#4F8062', bio:'Ex-professor de informática. Ajudo idosos e iniciantes com computadores e celulares.', location:'Jardim Aurora', skills:['Informática','Tecnologia','Celulares'], hoursShared:18, activitiesCompleted:12, peopleHelped:15, ratingAvg:4.9, ratingsCount:9, joinedAt:'2025-04-20', availability:'Manhãs de sábado', level:'Referência comunitária' },
-    { id:'u5', name:'Fernanda Lima', firstName:'Fernanda', email:'fernanda@exemplo.com', password:'123456', color:'#9C4A6B', bio:'Artesã e designer. Ensino técnicas de pintura, artesanato e organização de espaços.', location:'Bela Vista', skills:['Artesanato','Design','Pintura'], hoursShared:8, activitiesCompleted:5, peopleHelped:7, ratingAvg:4.7, ratingsCount:4, joinedAt:'2025-10-01', availability:'Sábados à tarde', level:'Colaborador' },
-    { id:'u6', name:'Paulo Henrique', firstName:'Paulo', email:'paulo@exemplo.com', password:'123456', color:'#2F5D6C', bio:'Jardineiro e cuidador de hortas. Participo de mutirões de limpeza e plantio.', location:'Morada Verde', skills:['Jardinagem','Horta','Limpeza'], hoursShared:16, activitiesCompleted:10, peopleHelped:11, ratingAvg:4.8, ratingsCount:7, joinedAt:'2025-07-08', availability:'Fins de semana', level:'Participante ativo' },
-    { id:'u7', name:'Camila Duarte', firstName:'Camila', email:'camila@exemplo.com', password:'123456', color:'#8A6D3B', bio:'Educadora física e instrutora de yoga. Promovo atividades de bem-estar e alongamento.', location:'Centro', skills:['Yoga','Atividade física','Bem-estar'], hoursShared:9, activitiesCompleted:6, peopleHelped:8, ratingAvg:4.9, ratingsCount:5, joinedAt:'2025-11-03', availability:'Segundas e quartas de manhã', level:'Colaborador' },
-    { id:'u8', name:'Eduardo Rocha', firstName:'Eduardo', email:'eduardo@exemplo.com', password:'123456', color:'#5B4D8A', bio:'Desenvolvedor front-end. Ajudo com configuração de computadores e redes sociais.', location:'Vila Esperança', skills:['Programação','Redes sociais','Configuração'], hoursShared:11, activitiesCompleted:8, peopleHelped:10, ratingAvg:4.6, ratingsCount:6, joinedAt:'2025-05-17', availability:'Quartas à noite', level:'Colaborador' },
+    { id:'u1', name:'Marina Santos', firstName:'Marina', email:'demo@colabre.com', password:'123456', color:'#2563EB', bio:'Professora de inglês e apaixonada por projetos comunitários. Gosto de compartilhar conhecimento e aprender com a vizinhança.', location:'Jardim Aurora', skills:['Inglês','Educação','Organização de eventos'], hoursShared:14, activitiesCompleted:9, peopleHelped:12, ratingAvg:4.9, ratingsCount:8, joinedAt:'2025-08-10', availability:'Fins de semana e quartas à tarde', level:'Participante ativo' },
+    { id:'u2', name:'Carlos Mendes', firstName:'Carlos', email:'carlos@exemplo.com', password:'123456', color:'#F59E0B', bio:'Técnico em manutenção e eletricidade. Ajudo com pequenos reparos e ensino básico de ferramentas.', location:'Centro', skills:['Manutenção','Eletricidade','Reparos domésticos'], hoursShared:22, activitiesCompleted:14, peopleHelped:16, ratingAvg:4.8, ratingsCount:11, joinedAt:'2025-06-02', availability:'Segundas e sextas', level:'Colaborador' },
+    { id:'u3', name:'Juliana Costa', firstName:'Juliana', email:'juliana@exemplo.com', password:'123456', color:'#10B981', bio:'Estudante de matemática. Dou aulas de reforço e ajudo com tarefas escolares.', location:'Vila Esperança', skills:['Matemática','Reforço escolar','Ensino'], hoursShared:10, activitiesCompleted:7, peopleHelped:9, ratingAvg:5.0, ratingsCount:6, joinedAt:'2025-09-14', availability:'Terças e quintas à noite', level:'Colaborador' },
+    { id:'u4', name:'Roberto Almeida', firstName:'Roberto', email:'roberto@exemplo.com', password:'123456', color:'#0EA5E9', bio:'Ex-professor de informática. Ajudo idosos e iniciantes com computadores e celulares.', location:'Jardim Aurora', skills:['Informática','Tecnologia','Celulares'], hoursShared:18, activitiesCompleted:12, peopleHelped:15, ratingAvg:4.9, ratingsCount:9, joinedAt:'2025-04-20', availability:'Manhãs de sábado', level:'Referência comunitária' },
+    { id:'u5', name:'Fernanda Lima', firstName:'Fernanda', email:'fernanda@exemplo.com', password:'123456', color:'#8B5CF6', bio:'Artesã e designer. Ensino técnicas de pintura, artesanato e organização de espaços.', location:'Bela Vista', skills:['Artesanato','Design','Pintura'], hoursShared:8, activitiesCompleted:5, peopleHelped:7, ratingAvg:4.7, ratingsCount:4, joinedAt:'2025-10-01', availability:'Sábados à tarde', level:'Colaborador' },
+    { id:'u6', name:'Paulo Henrique', firstName:'Paulo', email:'paulo@exemplo.com', password:'123456', color:'#2563EB', bio:'Jardineiro e cuidador de hortas. Participo de mutirões de limpeza e plantio.', location:'Morada Verde', skills:['Jardinagem','Horta','Limpeza'], hoursShared:16, activitiesCompleted:10, peopleHelped:11, ratingAvg:4.8, ratingsCount:7, joinedAt:'2025-07-08', availability:'Fins de semana', level:'Participante ativo' },
+    { id:'u7', name:'Camila Duarte', firstName:'Camila', email:'camila@exemplo.com', password:'123456', color:'#10B981', bio:'Educadora física e instrutora de yoga. Promovo atividades de bem-estar e alongamento.', location:'Centro', skills:['Yoga','Atividade física','Bem-estar'], hoursShared:9, activitiesCompleted:6, peopleHelped:8, ratingAvg:4.9, ratingsCount:5, joinedAt:'2025-11-03', availability:'Segundas e quartas de manhã', level:'Colaborador' },
+    { id:'u8', name:'Eduardo Rocha', firstName:'Eduardo', email:'eduardo@exemplo.com', password:'123456', color:'#8B5CF6', bio:'Desenvolvedor front-end. Ajudo com configuração de computadores e redes sociais.', location:'Vila Esperança', skills:['Programação','Redes sociais','Configuração'], hoursShared:11, activitiesCompleted:8, peopleHelped:10, ratingAvg:4.6, ratingsCount:6, joinedAt:'2025-05-17', availability:'Quartas à noite', level:'Colaborador' },
   ];
 
   const opportunities = [
@@ -59,7 +59,7 @@ function seedData() {
     { id:'n4', userId:'u1', title:'Atividade confirmada', message:'Sua participação na oficina comunitária foi confirmada.', date:'2026-10-26', read:true, link:{view:'carteira'} },
     { id:'n3', userId:'u1', title:'Aguardando sua confirmação', message:'Confirme as horas da atividade "Aula de inglês para iniciantes".', date:'2026-10-24', read:true, link:{view:'atividades'} },
     { id:'n2', userId:'u1', title:'Novo projeto na sua região', message:'"Conexão Digital" busca voluntários no Centro.', date:'2026-10-15', read:true, link:{view:'projeto', id:'p2'} },
-    { id:'n1', userId:'u1', title:'Bem-vinda ao O Tempo Vale', message:'Que bom ter você por aqui. Compartilhe seu tempo e faça parte da comunidade.', date:'2026-08-10', read:true, link:{view:'dashboard'} },
+    { id:'n1', userId:'u1', title:'Bem-vinda ao Colabre', message:'Que bom ter você por aqui. Compartilhe seu tempo e faça parte da comunidade.', date:'2026-08-10', read:true, link:{view:'dashboard'} },
   ];
 
   const activities = [
@@ -73,7 +73,7 @@ function seedData() {
 
 /* O Tempo Vale — Persistência demonstrativa (localStorage) */
 
-const KEY = 'otempoVale_v1';
+const KEY = 'colabre_v1';
 
 function loadDB() {
   try {
@@ -242,10 +242,13 @@ function unreadCount(db, userId) {
   return db.notifications.filter(n => n.userId === userId && !n.read).length;
 }
 
-/* O Tempo Vale — App (SPA demonstrativa, Vanilla JS)
+/* Colabre — App (SPA demonstrativa, Vanilla JS)
    Autenticação e persistência são apenas demonstrativas via localStorage. */
 
 let db = loadDB();
+const savedTheme = localStorage.getItem('colabre_theme');
+if(savedTheme){ document.documentElement.setAttribute('data-theme', savedTheme); }
+function toggleTheme(){ const isDark = document.documentElement.getAttribute('data-theme')==='dark'; document.documentElement.setAttribute('data-theme', isDark?'light':'dark'); localStorage.setItem('colabre_theme', isDark?'light':'dark'); }
 const CATEGORIES = ['Educação','Tecnologia','Idiomas','Saúde e bem-estar','Artes e criatividade','Serviços domésticos','Esportes','Apoio comunitário','Outros'];
 const PROJ_CATEGORIES = ['Meio ambiente','Educação','Inclusão social','Tecnologia','Cultura','Infraestrutura comunitária','Saúde e bem-estar','Outros'];
 const LEVELS = ['Iniciante','Colaborador','Participante ativo','Referência comunitária','Embaixador'];
@@ -266,7 +269,7 @@ function layout(inner, active){
   return `
   <div class="app">
     <aside class="sidebar">
-      <div class="logo">O <b>Tempo</b> Vale</div>
+      <div class="logo">Colabre</div>
       <nav class="nav" aria-label="Principal">
         ${links.map(([v,ic,l])=>`<a href="#/${v}" class="${active===v?'active':''}"><span class="ico">${ic}</span>${l}</a>`).join('')}
       </nav>
@@ -274,11 +277,12 @@ function layout(inner, active){
     </aside>
     <div class="main">
       <header class="topbar"><div class="topbar-in">
-        <strong style="color:var(--primary)">O Tempo Vale</strong>
+        <strong style="color:var(--primary)">Colabre</strong>
         <span class="chip" style="background:var(--accent-light);color:#8F3B00;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:800">⏰ ${fmtCredits(getBalance(db,u.id))} créditos</span>
         <div class="spacer"></div>
         <a class="btn btn-outline btn-sm" href="#/criar">＋ Criar</a>
         <button class="iconbtn" data-action="notif" aria-label="Notificações">🔔${un?`<span class="dot">${un}</span>`:''}</button>
+        <button class="iconbtn theme-toggle" data-action="theme" aria-label="Alternar tema">🌙</button>
         <button class="iconbtn" data-action="logout" aria-label="Sair">↪</button>
       </div></header>
       <div class="content"><div class="page">${inner}</div></div>
@@ -299,7 +303,7 @@ function renderAuth(){
   <div class="auth">
     <section class="auth-hero">
       <div>
-        <div class="logo" style="color:#fff;padding:0">O <b style="color:#FBBF24">Tempo</b> Vale</div>
+        <div class="logo" style="color:#fff;padding:0">Colabre</div>
         <h1 style="margin-top:26px">Seu tempo tem valor. Sua comunidade também.</h1>
         <p class="sub">Conectamos pessoas para compartilhar habilidades, oferecer ajuda e transformar pequenas contribuições em grandes mudanças.</p>
         <div class="benefits">
@@ -313,7 +317,7 @@ function renderAuth(){
     </section>
     <section class="auth-panel">
       <div class="auth-card">
-        <div class="logo">O <b>Tempo</b> Vale</div>
+        <div class="logo">Colabre</div>
         <h2 style="margin:10px 0 4px">Entrar na plataforma</h2>
         <p class="text-muted small">Use a conta demo ou crie uma conta para explorar.</p>
         <form id="login-form" novalidate>
@@ -346,7 +350,7 @@ function renderAuth(){
     const found = db.users.find(u=>u.email.toLowerCase()===email);
     if(!email || !pass){ $('#login-error').textContent='Preencha e-mail e senha.'; return; }
     if(!found){ $('#login-error').textContent='Conta não encontrada. Crie uma conta ou use a demonstração.'; return; }
-    db.currentUserId = found.id; saveDB(db); location.hash='#/dashboard'; try{render();}catch(e){console.error(e);var r=document.getElementById('root');if(r)r.innerHTML='<div style="padding:24px;font-family:system-ui"><h2>O Tempo Vale</h2><p>Algo não carregou. Abra o console (F12) para detalhes.</p></div>';}
+    db.currentUserId = found.id; saveDB(db); location.hash='#/dashboard'; try{render();var _r=document.getElementById('root');if(_r)_r.dataset.ready='1';}catch(e){console.error(e);var r=document.getElementById('root');if(r)r.innerHTML='<div style="padding:24px;font-family:system-ui"><h2>Colabre</h2><p>Algo não carregou. Abra o console (F12) para detalhes.</p></div>';}
   });
   $('#signup-form').addEventListener('submit', e=>{
     e.preventDefault();
@@ -356,7 +360,7 @@ function renderAuth(){
     if(pass.length<4){ $('#su-error').textContent='A senha precisa de ao menos 4 caracteres.'; return; }
     if(db.users.some(u=>u.email.toLowerCase()===email)){ $('#su-error').textContent='Este e-mail já está cadastrado.'; return; }
     const colors=['#3D5145','#CC5500','#4F8062','#2F5D6C','#9C4A6B','#8A6D3B'];
-    const nu = {id:uid('u'), name, firstName:name.split(' ')[0], email, password:pass, color:colors[db.users.length%colors.length], bio:'Novo participante do O Tempo Vale.', location:'Minha comunidade', skills:[], hoursShared:0, activitiesCompleted:0, peopleHelped:0, ratingAvg:0, ratingsCount:0, joinedAt:new Date().toISOString().slice(0,10), availability:'A combinar', level:'Iniciante'};
+    const nu = {id:uid('u'), name, firstName:name.split(' ')[0], email, password:pass, color:colors[db.users.length%colors.length], bio:'Novo participante do Colabre.', location:'Minha comunidade', skills:[], hoursShared:0, activitiesCompleted:0, peopleHelped:0, ratingAvg:0, ratingsCount:0, joinedAt:new Date().toISOString().slice(0,10), availability:'A combinar', level:'Iniciante'};
     db.users.push(nu); addTransaction(db, nu.id, 2, 'Crédito de boas-vindas'); db.currentUserId=nu.id; saveDB(db); location.hash='#/dashboard'; render();
     setTimeout(()=>toast('Conta criada! Você recebeu 2 créditos de boas-vindas.'),100);
   });
@@ -375,7 +379,7 @@ function oppCard(o){
 }
 function projCard(p){
   const {pct,remaining} = projectProgress(p); const owner=userById(p.ownerId);
-  const colors={'post':'#3D5145','p1':'linear-gradient(120deg,#4F8062,#3D5145)','p2':'linear-gradient(120deg,#2F5D6C,#3D5145)','p3':'linear-gradient(120deg,#CC5500,#8F3B00)','p4':'linear-gradient(120deg,#9C4A6B,#5B4D8A)'};
+  const colors={'post':'#2563EB','p1':'linear-gradient(120deg,#10B981,#2563EB)','p2':'linear-gradient(120deg,#0EA5E9,#2563EB)','p3':'linear-gradient(120deg,#F59E0B,#D97706)','p4':'linear-gradient(120deg,#8B5CF6,#2563EB)'};
   const emojis={p1:'🌳',p2:'💻',p3:'🥕',p4:'🧘'};
   const bg = colors[p.id]||'linear-gradient(120deg,#3D5145,#2E4238)';
   return `<article class="card proj-card">
@@ -394,14 +398,14 @@ function projCard(p){
 
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
-  const u=me(); const bal=getBalance(db,u.id); const stats=getStats(db,u.id);
+  const u=me(); const isDemo = u && (u.email === 'demo@colabre.com' || u.id === 'u1'); const bal=getBalance(db,u.id); const stats=getStats(db,u.id);
   const activityDone = db.activities.filter(a=>(a.ownerId===u.id||a.interestedId===u.id)&&a.status==='concluida').length;
   const recs = db.opportunities.filter(o=>o.ownerId!==u.id && o.status!=='cancelled').slice(0,4);
   const projs = db.projects.filter(p=>p.status==='Ativo').slice(0,3);
   const recent = [...db.transactions.filter(t=>t.userId===u.id)].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
   const eq = fmtHoursDesc(bal);
   return layout(`
-  <div class="page-head"><h1>Olá, ${esc(u.firstName)}! 👋</h1><p>Que bom ter você por aqui. Vamos fazer seu tempo valer?</p></div>
+  <div class="page-head"><h1>Olá, ${isDemo ? 'Usuário' : esc(u.firstName)}! 👋</h1><p>Que bom ter você por aqui. Vamos fazer seu tempo valer?</p></div>
   <div class="grid3">
     <div class="card stat"><div class="ic">⏰</div><div><strong>${fmtCredits(bal)} créditos</strong><span class="text-muted">Disponíveis para utilizar · Equivalente a ${eq}</span><div style="margin-top:8px"><a class="btn btn-outline btn-sm" href="#/carteira">Ver carteira</a></div></div></div>
     <div class="card stat"><div class="ic">🤲</div><div><strong>${fmtCredits(u.hoursShared||0)} horas</strong><span class="text-muted">Compartilhadas · Seu tempo já ajudou outras pessoas</span></div></div>
@@ -457,7 +461,7 @@ function renderOppDetail(id){
         <h1 style="margin:10px 0">${esc(o.title)}</h1>
         <p class="text-muted">${esc(o.description)}</p>
         <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(o.durationHours)}</span><span class="meta">${fmtCredits(o.durationHours)} ${o.durationHours==1?'crédito':'créditos'}</span><span class="meta">${o.modality}</span><span class="meta">📍 ${esc(o.location)}</span><span class="meta">🗓️ ${esc(o.availability||'')}</span><span class="meta">Publicado ${fmtDate(o.publishedAt)}</span></div>
-        <div class="readme">No O Tempo Vale, o tempo é nossa unidade de troca. Cada hora de contribuição equivale a um crédito. A movimentação acontece apenas após a atividade e a confirmação mútua.</div>
+        <div class="readme">No Colabre, o tempo é nossa unidade de troca. Cada hora de contribuição equivale a um crédito. A movimentação acontece apenas após a atividade e a confirmação mútua.</div>
       </div>
       <div class="card"><h3>Sobre quem publicou</h3><div class="userrow" style="margin-top:10px">${avatar(u,'avatar-lg')}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location)} · nível ${esc(u.level||'Colaborador')} · ${fmtCredits(u.hoursShared||0)}h compartilhadas</div><p class="small text-muted" style="margin:6px 0 0">${esc(u.bio)}</p><div class="chips">${(u.skills||[]).map(s=>`<span class="badge badge-cat">${esc(s)}</span>`).join('')}</div></div></div></div>
     </div>
@@ -496,7 +500,7 @@ function renderCreate(){
     </div>`;
   if(ui.createStep===3) body=`
     <h2>Informações de tempo</h2>
-    <div class="readme">No O Tempo Vale, o tempo é nossa unidade de troca. Cada hora de contribuição equivale a um crédito.</div>
+    <div class="readme">No Colabre, o tempo é nossa unidade de troca. Cada hora de contribuição equivale a um crédito.</div>
     <div class="field" style="margin-top:12px"><label>Tempo estimado *</label>
     <select id="c-dur">${[0.5,1,1.5,2,3].map(v=>`<option value="${v}" ${c.durationHours===v?'selected':''}>${fmtHoursDesc(v)} (${fmtCredits(v)} crédito${v==1?'':'s'})</option>`).join('')}</select></div>
     <p class="kv">30 minutos = 0,5 crédito · 1 hora = 1 crédito · 2 horas = 2 créditos</p>`;
@@ -804,6 +808,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.action, id=el.dataset.id;
   const u=me();
   if(a==='notif'){ go('notificacoes'); return; }
+  if(a==='theme'){ toggleTheme(); render(); return; }
   if(a==='logout'){ logout(); return; }
   if(a==='demo'){ db.currentUserId='u1'; saveDB(db); location.hash='#/dashboard'; render(); return; }
   if(a==='visitor'){ db.currentUserId='u1'; saveDB(db); location.hash='#/dashboard'; render(); toast('Você entrou como visitante (Marina Santos).'); return; }
@@ -853,6 +858,6 @@ document.addEventListener('click',e=>{
 $('#modal-cancel').addEventListener('click',closeModal);
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
 window.addEventListener('hashchange',render);
-try{render();var _r=document.getElementById('root');if(_r)_r.dataset.ready='1';}catch(e){console.error(e);var r=document.getElementById('root');if(r)r.innerHTML='<div style="padding:24px;font-family:system-ui"><h2>O Tempo Vale</h2><p>Algo não carregou. Abra o console (F12) para detalhes.</p></div>';}
+render();
 
 })();
