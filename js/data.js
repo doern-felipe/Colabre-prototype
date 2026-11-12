@@ -3,7 +3,7 @@ export const DEMO_USER_ID = 'u1';
 
 export function seedData() {
   const users = [
-    { id:'u1', name:'Marina Santos', firstName:'Marina', email:'demo@colabre.com', password:'123456', color:'#2563EB', bio:'Professora de inglês e apaixonada por projetos comunitários. Gosto de compartilhar conhecimento e aprender com a vizinhança.', location:'Jardim Aurora', skills:['Inglês','Educação','Organização de eventos'], hoursShared:14, activitiesCompleted:9, peopleHelped:12, ratingAvg:4.9, ratingsCount:8, joinedAt:'2025-08-10', availability:'Fins de semana e quartas à tarde', level:'Participante ativo' },
+    { id:'u1', name:'Usuário Demonstração', firstName:'Usuário Demonstração', email:'demo@colabre.com', password:'123456', color:'#2563EB', bio:'Professora de inglês e apaixonada por projetos comunitários. Gosto de compartilhar conhecimento e aprender com a vizinhança.', location:'Jardim Aurora', skills:['Inglês','Educação','Organização de eventos'], hoursShared:14, activitiesCompleted:9, peopleHelped:12, ratingAvg:4.9, ratingsCount:8, joinedAt:'2025-08-10', availability:'Fins de semana e quartas à tarde', level:'Participante ativo' },
     { id:'u2', name:'Carlos Mendes', firstName:'Carlos', email:'carlos@exemplo.com', password:'123456', color:'#F59E0B', bio:'Técnico em manutenção e eletricidade. Ajudo com pequenos reparos e ensino básico de ferramentas.', location:'Centro', skills:['Manutenção','Eletricidade','Reparos domésticos'], hoursShared:22, activitiesCompleted:14, peopleHelped:16, ratingAvg:4.8, ratingsCount:11, joinedAt:'2025-06-02', availability:'Segundas e sextas', level:'Colaborador' },
     { id:'u3', name:'Juliana Costa', firstName:'Juliana', email:'juliana@exemplo.com', password:'123456', color:'#10B981', bio:'Estudante de matemática. Dou aulas de reforço e ajudo com tarefas escolares.', location:'Vila Esperança', skills:['Matemática','Reforço escolar','Ensino'], hoursShared:10, activitiesCompleted:7, peopleHelped:9, ratingAvg:5.0, ratingsCount:6, joinedAt:'2025-09-14', availability:'Terças e quintas à noite', level:'Colaborador' },
     { id:'u4', name:'Roberto Almeida', firstName:'Roberto', email:'roberto@exemplo.com', password:'123456', color:'#0EA5E9', bio:'Ex-professor de informática. Ajudo idosos e iniciantes com computadores e celulares.', location:'Jardim Aurora', skills:['Informática','Tecnologia','Celulares'], hoursShared:18, activitiesCompleted:12, peopleHelped:15, ratingAvg:4.9, ratingsCount:9, joinedAt:'2025-04-20', availability:'Manhãs de sábado', level:'Referência comunitária' },
@@ -11,6 +11,7 @@ export function seedData() {
     { id:'u6', name:'Paulo Henrique', firstName:'Paulo', email:'paulo@exemplo.com', password:'123456', color:'#2563EB', bio:'Jardineiro e cuidador de hortas. Participo de mutirões de limpeza e plantio.', location:'Morada Verde', skills:['Jardinagem','Horta','Limpeza'], hoursShared:16, activitiesCompleted:10, peopleHelped:11, ratingAvg:4.8, ratingsCount:7, joinedAt:'2025-07-08', availability:'Fins de semana', level:'Participante ativo' },
     { id:'u7', name:'Camila Duarte', firstName:'Camila', email:'camila@exemplo.com', password:'123456', color:'#10B981', bio:'Educadora física e instrutora de yoga. Promovo atividades de bem-estar e alongamento.', location:'Centro', skills:['Yoga','Atividade física','Bem-estar'], hoursShared:9, activitiesCompleted:6, peopleHelped:8, ratingAvg:4.9, ratingsCount:5, joinedAt:'2025-11-03', availability:'Segundas e quartas de manhã', level:'Colaborador' },
     { id:'u8', name:'Eduardo Rocha', firstName:'Eduardo', email:'eduardo@exemplo.com', password:'123456', color:'#8B5CF6', bio:'Desenvolvedor front-end. Ajudo com configuração de computadores e redes sociais.', location:'Vila Esperança', skills:['Programação','Redes sociais','Configuração'], hoursShared:11, activitiesCompleted:8, peopleHelped:10, ratingAvg:4.6, ratingsCount:6, joinedAt:'2025-05-17', availability:'Quartas à noite', level:'Colaborador' },
+    { id:'u9', name:'Visitante', firstName:'Visitante', email:'visitante@colabre.com', password:'', color:'#94A3B8', bio:'Visitante da plataforma. Não pode oferecer ou solicitar ajuda.', location:'Visitante', skills:[], hoursShared:0, activitiesCompleted:0, peopleHelped:0, ratingAvg:0, ratingsCount:0, joinedAt:new Date().toISOString().slice(0,10), availability:'-', level:'Visitante' },
   ];
 
   const opportunities = [
@@ -60,10 +61,39 @@ export function seedData() {
   ];
 
   const activities = [
-    { id:'a1', oppId:'o1', ownerId:'u1', interestedId:'u2', status:'interesse', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-05', note:'Carlos quer começar inglês do zero.' },
-    { id:'a2', oppId:'o3', ownerId:'u4', interestedId:'u1', status:'confirmada', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-02', note:'Ajuda com computador na casa de Marina.' },
-    { id:'a3', oppId:'o1', ownerId:'u1', interestedId:'u3', status:'concluida', plannedHours:1, confirmedHours:1, ownerConfirmed:true, interestedConfirmed:true, credited:true, createdAt:'2026-10-28', note:'Aula de inglês realizada.' },
+    { id:'a1', oppId:'o1', ownerId:'u1', interestedId:'u2', status:'interesse', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-05', note:'Carlos quer começar inglês do zero.', securityCode:'', codeUsed:false, ratedBy:{}, chatOpened:false },
+    { id:'a2', oppId:'o3', ownerId:'u4', interestedId:'u1', status:'confirmada', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-02', note:'Ajuda com computador na casa de Marina.', securityCode:'', codeUsed:false, ratedBy:{}, chatOpened:false },
+    { id:'a3', oppId:'o1', ownerId:'u1', interestedId:'u3', status:'concluida', plannedHours:1, confirmedHours:1, ownerConfirmed:true, interestedConfirmed:true, credited:true, createdAt:'2026-10-28', note:'Aula de inglês realizada.', securityCode:'', codeUsed:false, ratedBy:{}, chatOpened:false },
   ];
 
-  return { users, opportunities, projects, transactions, notifications, activities, currentUserId:null };
+  const chats = [
+    { id:'c1', activityId:'a1', messages:[
+      { id:'m1', senderId:'u2', text:'Olá! Vi sua oferta de inglês. Quando você tem disponibilidade?', date:'2026-11-05T09:00:00' },
+      { id:'m2', senderId:'u1', text:'Oi Carlos! Tenho disponibilidade aos sábados às 10h. Te atende?', date:'2026-11-05T09:15:00' },
+      { id:'m3', senderId:'u2', text:'Perfeito! Sábado às 10h funciona para mim. Posso usar o código de segurança quando finalizar?', date:'2026-11-05T09:20:00' },
+      { id:'m4', senderId:'u1', text:'Sim, claro! Vou gerar o código quando aceitar seu interesse.', date:'2026-11-05T09:25:00' },
+    ]},
+    { id:'c2', activityId:'a2', messages:[
+      { id:'m5', senderId:'u1', text:'Oi Roberto! Preciso de ajuda com configuração de computador.', date:'2026-11-02T14:00:00' },
+      { id:'m6', senderId:'u4', text:'Olá Marina! Posso ajudar. Você tem o computador em casa ou precisa vir aqui?', date:'2026-11-02T14:10:00' },
+      { id:'m7', senderId:'u1', text:'Pode ser na minha casa, Jardim Aurora. Sábado de manhã funciona?', date:'2026-11-02T14:15:00' },
+      { id:'m8', senderId:'u4', text:'Funciona. Vou aceitar sua solicitação e geramos o código de segurança.', date:'2026-11-02T14:20:00' },
+    ]},
+    { id:'c3', activityId:'a3', messages:[
+      { id:'m9', senderId:'u3', text:'Oi Marina! Gostaria de fazer a aula de inglês.', date:'2026-10-28T10:00:00' },
+      { id:'m10', senderId:'u1', text:'Olá Juliana! Legal, marquei para sábado. Até lá!', date:'2026-10-28T10:05:00' },
+    ]},
+  ];
+
+  const securityCodes = [
+    { id:'sc1', activityId:'a1', code:'7421', used:false, createdAt:'2026-11-05T10:00:00' },
+    { id:'sc2', activityId:'a2', code:'3891', used:false, createdAt:'2026-11-02T15:00:00' },
+  ];
+
+  const ratings = [
+    { id:'r1', activityId:'a3', fromId:'u1', toId:'u3', stars:5, comment:'Ótima aluna, muito dedicada!', date:'2026-10-28' },
+    { id:'r2', activityId:'a3', fromId:'u3', toId:'u1', stars:5, comment:'Excelente professora, muito paciente.', date:'2026-10-28' },
+  ];
+
+  return { users, opportunities, projects, transactions, notifications, activities, chats, securityCodes, ratings, currentUserId:null };
 }

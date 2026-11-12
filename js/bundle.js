@@ -6,7 +6,7 @@ const DEMO_USER_ID = 'u1';
 
 function seedData() {
   const users = [
-    { id:'u1', name:'Marina Santos', firstName:'Marina', email:'demo@colabre.com', password:'123456', color:'#2563EB', bio:'Professora de inglês e apaixonada por projetos comunitários. Gosto de compartilhar conhecimento e aprender com a vizinhança.', location:'Jardim Aurora', skills:['Inglês','Educação','Organização de eventos'], hoursShared:14, activitiesCompleted:9, peopleHelped:12, ratingAvg:4.9, ratingsCount:8, joinedAt:'2025-08-10', availability:'Fins de semana e quartas à tarde', level:'Participante ativo' },
+    { id:'u1', name:'Usuário Demonstração', firstName:'Usuário Demonstração', email:'demo@colabre.com', password:'123456', color:'#2563EB', bio:'Professora de inglês e apaixonada por projetos comunitários. Gosto de compartilhar conhecimento e aprender com a vizinhança.', location:'Jardim Aurora', skills:['Inglês','Educação','Organização de eventos'], hoursShared:14, activitiesCompleted:9, peopleHelped:12, ratingAvg:4.9, ratingsCount:8, joinedAt:'2025-08-10', availability:'Fins de semana e quartas à tarde', level:'Participante ativo' },
     { id:'u2', name:'Carlos Mendes', firstName:'Carlos', email:'carlos@exemplo.com', password:'123456', color:'#F59E0B', bio:'Técnico em manutenção e eletricidade. Ajudo com pequenos reparos e ensino básico de ferramentas.', location:'Centro', skills:['Manutenção','Eletricidade','Reparos domésticos'], hoursShared:22, activitiesCompleted:14, peopleHelped:16, ratingAvg:4.8, ratingsCount:11, joinedAt:'2025-06-02', availability:'Segundas e sextas', level:'Colaborador' },
     { id:'u3', name:'Juliana Costa', firstName:'Juliana', email:'juliana@exemplo.com', password:'123456', color:'#10B981', bio:'Estudante de matemática. Dou aulas de reforço e ajudo com tarefas escolares.', location:'Vila Esperança', skills:['Matemática','Reforço escolar','Ensino'], hoursShared:10, activitiesCompleted:7, peopleHelped:9, ratingAvg:5.0, ratingsCount:6, joinedAt:'2025-09-14', availability:'Terças e quintas à noite', level:'Colaborador' },
     { id:'u4', name:'Roberto Almeida', firstName:'Roberto', email:'roberto@exemplo.com', password:'123456', color:'#0EA5E9', bio:'Ex-professor de informática. Ajudo idosos e iniciantes com computadores e celulares.', location:'Jardim Aurora', skills:['Informática','Tecnologia','Celulares'], hoursShared:18, activitiesCompleted:12, peopleHelped:15, ratingAvg:4.9, ratingsCount:9, joinedAt:'2025-04-20', availability:'Manhãs de sábado', level:'Referência comunitária' },
@@ -14,6 +14,7 @@ function seedData() {
     { id:'u6', name:'Paulo Henrique', firstName:'Paulo', email:'paulo@exemplo.com', password:'123456', color:'#2563EB', bio:'Jardineiro e cuidador de hortas. Participo de mutirões de limpeza e plantio.', location:'Morada Verde', skills:['Jardinagem','Horta','Limpeza'], hoursShared:16, activitiesCompleted:10, peopleHelped:11, ratingAvg:4.8, ratingsCount:7, joinedAt:'2025-07-08', availability:'Fins de semana', level:'Participante ativo' },
     { id:'u7', name:'Camila Duarte', firstName:'Camila', email:'camila@exemplo.com', password:'123456', color:'#10B981', bio:'Educadora física e instrutora de yoga. Promovo atividades de bem-estar e alongamento.', location:'Centro', skills:['Yoga','Atividade física','Bem-estar'], hoursShared:9, activitiesCompleted:6, peopleHelped:8, ratingAvg:4.9, ratingsCount:5, joinedAt:'2025-11-03', availability:'Segundas e quartas de manhã', level:'Colaborador' },
     { id:'u8', name:'Eduardo Rocha', firstName:'Eduardo', email:'eduardo@exemplo.com', password:'123456', color:'#8B5CF6', bio:'Desenvolvedor front-end. Ajudo com configuração de computadores e redes sociais.', location:'Vila Esperança', skills:['Programação','Redes sociais','Configuração'], hoursShared:11, activitiesCompleted:8, peopleHelped:10, ratingAvg:4.6, ratingsCount:6, joinedAt:'2025-05-17', availability:'Quartas à noite', level:'Colaborador' },
+    { id:'u9', name:'Visitante', firstName:'Visitante', email:'visitante@colabre.com', password:'', color:'#94A3B8', bio:'Visitante da plataforma. Não pode oferecer ou solicitar ajuda.', location:'Visitante', skills:[], hoursShared:0, activitiesCompleted:0, peopleHelped:0, ratingAvg:0, ratingsCount:0, joinedAt:new Date().toISOString().slice(0,10), availability:'-', level:'Visitante' },
   ];
 
   const opportunities = [
@@ -63,17 +64,46 @@ function seedData() {
   ];
 
   const activities = [
-    { id:'a1', oppId:'o1', ownerId:'u1', interestedId:'u2', status:'interesse', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-05', note:'Carlos quer começar inglês do zero.' },
-    { id:'a2', oppId:'o3', ownerId:'u4', interestedId:'u1', status:'confirmada', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-02', note:'Ajuda com computador na casa de Marina.' },
-    { id:'a3', oppId:'o1', ownerId:'u1', interestedId:'u3', status:'concluida', plannedHours:1, confirmedHours:1, ownerConfirmed:true, interestedConfirmed:true, credited:true, createdAt:'2026-10-28', note:'Aula de inglês realizada.' },
+    { id:'a1', oppId:'o1', ownerId:'u1', interestedId:'u2', status:'interesse', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-05', note:'Carlos quer começar inglês do zero.', securityCode:'', codeUsed:false, ratedBy:{}, chatOpened:false },
+    { id:'a2', oppId:'o3', ownerId:'u4', interestedId:'u1', status:'confirmada', plannedHours:1, confirmedHours:0, ownerConfirmed:false, interestedConfirmed:false, credited:false, createdAt:'2026-11-02', note:'Ajuda com computador na casa de Marina.', securityCode:'', codeUsed:false, ratedBy:{}, chatOpened:false },
+    { id:'a3', oppId:'o1', ownerId:'u1', interestedId:'u3', status:'concluida', plannedHours:1, confirmedHours:1, ownerConfirmed:true, interestedConfirmed:true, credited:true, createdAt:'2026-10-28', note:'Aula de inglês realizada.', securityCode:'', codeUsed:false, ratedBy:{}, chatOpened:false },
   ];
 
-  return { users, opportunities, projects, transactions, notifications, activities, currentUserId:null };
+  const chats = [
+    { id:'c1', activityId:'a1', messages:[
+      { id:'m1', senderId:'u2', text:'Olá! Vi sua oferta de inglês. Quando você tem disponibilidade?', date:'2026-11-05T09:00:00' },
+      { id:'m2', senderId:'u1', text:'Oi Carlos! Tenho disponibilidade aos sábados às 10h. Te atende?', date:'2026-11-05T09:15:00' },
+      { id:'m3', senderId:'u2', text:'Perfeito! Sábado às 10h funciona para mim. Posso usar o código de segurança quando finalizar?', date:'2026-11-05T09:20:00' },
+      { id:'m4', senderId:'u1', text:'Sim, claro! Vou gerar o código quando aceitar seu interesse.', date:'2026-11-05T09:25:00' },
+    ]},
+    { id:'c2', activityId:'a2', messages:[
+      { id:'m5', senderId:'u1', text:'Oi Roberto! Preciso de ajuda com configuração de computador.', date:'2026-11-02T14:00:00' },
+      { id:'m6', senderId:'u4', text:'Olá Marina! Posso ajudar. Você tem o computador em casa ou precisa vir aqui?', date:'2026-11-02T14:10:00' },
+      { id:'m7', senderId:'u1', text:'Pode ser na minha casa, Jardim Aurora. Sábado de manhã funciona?', date:'2026-11-02T14:15:00' },
+      { id:'m8', senderId:'u4', text:'Funciona. Vou aceitar sua solicitação e geramos o código de segurança.', date:'2026-11-02T14:20:00' },
+    ]},
+    { id:'c3', activityId:'a3', messages:[
+      { id:'m9', senderId:'u3', text:'Oi Marina! Gostaria de fazer a aula de inglês.', date:'2026-10-28T10:00:00' },
+      { id:'m10', senderId:'u1', text:'Olá Juliana! Legal, marquei para sábado. Até lá!', date:'2026-10-28T10:05:00' },
+    ]},
+  ];
+
+  const securityCodes = [
+    { id:'sc1', activityId:'a1', code:'7421', used:false, createdAt:'2026-11-05T10:00:00' },
+    { id:'sc2', activityId:'a2', code:'3891', used:false, createdAt:'2026-11-02T15:00:00' },
+  ];
+
+  const ratings = [
+    { id:'r1', activityId:'a3', fromId:'u1', toId:'u3', stars:5, comment:'Ótima aluna, muito dedicada!', date:'2026-10-28' },
+    { id:'r2', activityId:'a3', fromId:'u3', toId:'u1', stars:5, comment:'Excelente professora, muito paciente.', date:'2026-10-28' },
+  ];
+
+  return { users, opportunities, projects, transactions, notifications, activities, chats, securityCodes, ratings, currentUserId:null };
 }
 
 /* O Tempo Vale — Persistência demonstrativa (localStorage) */
 
-const KEY = 'colabre_v1';
+const KEY = 'colabre_v2';
 
 function loadDB() {
   try {
@@ -245,6 +275,44 @@ function unreadCount(db, userId) {
 /* Colabre — App (SPA demonstrativa, Vanilla JS)
    Autenticação e persistência são apenas demonstrativas via localStorage. */
 
+// Injetar CSS do chat diretamente para garantir aplicação mesmo com cache
+(function(){
+  const chatCSS = `
+.chat-header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.chat-header-avatar{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.chat-header-info{flex:1;min-width:0}
+.chat-header-name{font-size:17px;font-weight:700;color:var(--ink);line-height:1.2}
+.chat-header-sub{font-size:12px;color:var(--muted);line-height:1.4}
+.chat-window{height:calc(100vh - 240px);overflow-y:auto;background:var(--bg);padding:30px 24px 100px;display:flex;flex-direction:column;gap:22px;max-width:100%}
+.chat-msg{display:flex;flex-direction:column;gap:6px;max-width:76%;animation:fadeIn .35s ease}
+.chat-msg.own{align-items:flex-end;margin-left:auto}
+.chat-msg.other{align-items:flex-start;margin-right:auto}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.chat-msg .msg-header{font-size:11px;font-weight:800;letter-spacing:.03em;margin-bottom:3px;white-space:nowrap}
+.chat-msg.own .msg-header{color:var(--primary)}
+.chat-msg.other .msg-header{color:var(--secondary)}
+.chat-avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.chat-bubble{padding:12px 18px;border-radius:22px;font-size:15px;line-height:1.55;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,.1);word-wrap:break-word;white-space:pre-wrap}
+.chat-bubble.own{background:var(--primary);color:#fff;border-bottom-right-radius:6px}
+.chat-bubble.other{background:#F8FAFC;color:var(--ink);border-bottom-left-radius:6px;border:1px solid var(--border)}
+[data-theme="dark"] .chat-bubble.other{background:#334155;color:#fff;border-color:#475569}
+.chat-time{font-size:10px;color:var(--muted);margin-top:5px}
+.chat-msg.own .chat-time{text-align:right;color:rgba(255,255,255,.6)}
+.chat-msg.other .chat-time{text-align:left}
+.chat-empty{text-align:center;padding:100px 20px;color:var(--muted);font-size:16px}
+.chat-input-wrap{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:16px 24px;z-index:40}
+.chat-input-inner{max-width:640px;margin:0 auto}
+.chat-input{display:flex;gap:10px;align-items:flex-end}
+.chat-input input{flex:1;padding:13px 20px;border:1px solid var(--border);border-radius:16px;background:var(--bg);color:var(--ink);font-size:15px}
+.chat-input input:focus{border-color:var(--primary);outline:none}
+.chat-input button{min-width:100px;height:48px;padding:0 24px;border-radius:14px;font-size:15px;font-weight:700}
+.chat-input .btn-accent{color:#fff}
+`;
+  const s = document.createElement('style');
+  s.textContent = chatCSS;
+  document.head.insertBefore(s, document.head.firstChild);
+})();
+
 let db = loadDB();
 const savedTheme = localStorage.getItem('colabre_theme');
 if(savedTheme){ document.documentElement.setAttribute('data-theme', savedTheme); }
@@ -258,22 +326,22 @@ const ui = { explore:{q:'',type:'todas',category:'todas',modality:'todas',durati
 function me(){ return db.users.find(u=>u.id===db.currentUserId); }
 function userById(id){ return db.users.find(u=>u.id===id) || {name:'Usuário', color:'#999'}; }
 function avatar(u, cls=''){ return `<div class="avatar ${cls}" style="background:${u.color||'#3D5145'}" aria-hidden="true">${esc((u.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>`; }
-function avatarName(u){ return `<div class="userrow">${avatar(u)}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location||'')}</div></div></div>`; }
+function avatarName(u, clickable=false, id='', avatarCls=''){ const click = clickable && id ? ` data-action="goto-perfil-publico" data-id="${id}" style="cursor:pointer"` : ''; return `<div class="userrow"${click}>${avatar(u, avatarCls)}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location||'')}</div></div></div>`; }
 function logout(){ db.currentUserId=null; saveDB(db); location.hash='#/login'; render(); }
 function go(view, id){ location.hash = id ? `#/${view}/${id}` : `#/${view}`; }
-function parseRoute(){ const h = location.hash.replace('#/',''); const [v, id] = h.split('/'); return { view: v||'login', id }; }
+function parseRoute(){ const h = location.hash.replace('#/',''); const [path, query] = h.split('?'); const [v, id] = path.split('/'); const params = new URLSearchParams(query||''); return { view: v||'login', id, query: params }; }
 
 function layout(inner, active){
   const u = me(); const un = unreadCount(db, u.id);
-  const links = [['dashboard','🏠','Início'],['explorar','🔍','Explorar'],['atividades','🗓️','Minhas atividades'],['projetos','🌱','Projetos'],['carteira','⏰','Carteira'],['perfil','👤','Meu perfil'],['config','⚙️','Configurações']];
+  const links = [['dashboard','🏠','Início'],['explorar','🔍','Explorar'],['atividades','🗓️','Minhas atividades'],['projetos','🌱','Projetos'],['carteira','⏰','Carteira']];
   return `
   <div class="app">
     <aside class="sidebar">
-      <div class="logo">Colabre</div>
+      <div class="logo" data-action="goto-dashboard" style="cursor:pointer">Colabre</div>
       <nav class="nav" aria-label="Principal">
         ${links.map(([v,ic,l])=>`<a href="#/${v}" class="${active===v?'active':''}"><span class="ico">${ic}</span>${l}</a>`).join('')}
       </nav>
-      <div class="side-user">${avatar(u)}<div style="min-width:0"><strong class="small">${esc(u.name)}</strong><div class="kv">${fmtCredits(getBalance(db,u.id))} créditos</div></div></div>
+      <div class="side-user" data-action="goto-perfil" style="cursor:pointer">${avatar(u)}<div style="min-width:0"><strong class="small">${esc(u.name)}</strong><div class="kv">${fmtCredits(getBalance(db,u.id))} créditos</div></div></div>
     </aside>
     <div class="main">
       <header class="topbar"><div class="topbar-in">
@@ -301,17 +369,18 @@ function layout(inner, active){
 function renderAuth(){
   $('#root').innerHTML = `
   <div class="auth">
-    <section class="auth-hero">
+    <section class="auth-hero auth-hero-top">
+      <button class="demo-btn-top" data-action="demo">Demonstração</button>
       <div>
         <div class="logo" style="color:#fff;padding:0">Colabre</div>
         <h1 style="margin-top:26px">Seu tempo tem valor. Sua comunidade também.</h1>
         <p class="sub">Conectamos pessoas para compartilhar habilidades, oferecer ajuda e transformar pequenas contribuições em grandes mudanças.</p>
         <div class="benefits">
           <div class="benefit"><span>🤝</span><div><strong>Compartilhe o que você sabe</strong><div class="small" style="color:#D9E3DB">Ofereça aulas, consertos, orientação e muito mais.</div></div></div>
-          <div class="benefit"><span>💬</span><div><strong>Receba ajuda quando precisar</strong><div class="small" style="color:#D9E3DB">Uma hora de contribuição equivale a um crédito de tempo.</div></div></div>
+          <div class="benefit"><span>💬</span><div><strong>Receba ajuda quando precisar</strong><div class="small" style="color:#D9E3DB">Troque tempo por tempo, sem dinheiro envolvido.</div></div></div>
           <div class="benefit"><span>🌱</span><div><strong>Construa algo maior com sua comunidade</strong><div class="small" style="color:#D9E3DB">Participe de projetos coletivos que transformam bairros.</div></div></div>
         </div>
-        <div class="hero-illu">🤝 Uma hora de contribuição = <strong>1 crédito de tempo</strong> — sem dinheiro, com confiança e vizinhança.</div>
+        <div class="hero-illu">🤝 Troque tempo por tempo com confiança e vizinhança.</div>
       </div>
       <div class="small" style="color:#B9C9BD;margin-top:20px">Protótipo acadêmico demonstrativo · Dados salvos apenas no navegador (localStorage).</div>
     </section>
@@ -339,7 +408,7 @@ function renderAuth(){
           <p class="error" id="su-error"></p>
           <button class="btn btn-outline btn-block" type="submit">Criar conta</button>
         </form>
-        <p class="lang-note" style="margin-top:12px">Demo: <strong>demo@tempovale.com</strong> / qualquer senha · Visitante entra como Marina Santos.</p>
+        <p class="lang-note" style="margin-top:12px">Demo: <strong>demo@colabre.com</strong> / qualquer senha · Visitante entra como Marina Santos.</p>
       </div>
     </section>
   </div>`;
@@ -372,7 +441,7 @@ function oppCard(o){
   return `<article class="opp-card">
     <div class="inline"><span class="badge ${o.type==='offer'?'badge-offer':'badge-request'}">${o.type==='offer'?'OFERTA DE AJUDA':'SOLICITAÇÃO DE AJUDA'}</span><span class="badge badge-cat">${esc(o.category)}</span>${mine?'<span class="badge badge-status">Sua publicação</span>':''}</div>
     <h3>${esc(o.title)}</h3><p>${esc(o.description)}</p>
-    ${avatarName(u)}
+    ${avatarName(u, u.id!==db.currentUserId, u.id)}
     <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(o.durationHours)}</span><span class="meta">${fmtCredits(o.durationHours)} ${o.durationHours==1?'crédito':'créditos'}</span><span class="meta">${o.modality==='online'?'🖥️ Online':o.modality==='presencial'?'📍 Presencial':'🖥️📍 Ambas'}</span><span class="meta">📍 ${esc(o.location)}</span><span class="meta">🗓️ ${fmtDate(o.publishedAt)}</span></div>
     <div class="inline"><span class="badge badge-status">${o.availability||''}</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="opp-detail" data-id="${o.id}">Ver oportunidade</button></div>
   </article>`;
@@ -398,31 +467,37 @@ function projCard(p){
 
 /* ---------- Dashboard ---------- */
 function renderDashboard(){
-  const u=me(); const isDemo = u && (u.email === 'demo@colabre.com' || u.id === 'u1'); const bal=getBalance(db,u.id); const stats=getStats(db,u.id);
+  const u=me(); const isDemo = u && (u.email === 'demo@colabre.com' || u.id === 'u1'); const isVisitante = u && u.id === 'u9'; const bal=getBalance(db,u.id); const stats=getStats(db,u.id);
   const activityDone = db.activities.filter(a=>(a.ownerId===u.id||a.interestedId===u.id)&&a.status==='concluida').length;
   const recs = db.opportunities.filter(o=>o.ownerId!==u.id && o.status!=='cancelled').slice(0,4);
   const projs = db.projects.filter(p=>p.status==='Ativo').slice(0,3);
   const recent = [...db.transactions.filter(t=>t.userId===u.id)].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
   const eq = fmtHoursDesc(bal);
+  const nomeSaudacao = isVisitante ? 'Visitante' : (isDemo ? 'Usuário' : esc(u.firstName));
+  const acoesRapidas = isVisitante ? `
+    <div class="card" style="opacity:0.5;pointer-events:none;background:#F1F5F9;border:1px dashed var(--border)"><div style="font-size:24px">🔒</div><strong>Oferecer ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode oferecer ajuda.</p></div>
+    <div class="card" style="opacity:0.5;pointer-events:none;background:#F1F5F9;border:1px dashed var(--border)"><div style="font-size:24px">🔒</div><strong>Solicitar ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode solicitar ajuda.</p></div>
+    <a class="card" href="#/criar-projeto" style="display:block;opacity:0.5;pointer-events:none"><div style="font-size:24px">🔒</div><strong>Criar projeto</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode criar projetos.</p></a>
+  ` : `
+    <div class="card" data-action="criar-offer" style="cursor:pointer"><div style="font-size:24px">🎁</div><strong>Oferecer ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Publique uma oferta e acumule créditos.</p></div>
+    <div class="card" data-action="criar-request" style="cursor:pointer"><div style="font-size:24px">🙋</div><strong>Solicitar ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Peça apoio à comunidade com seus créditos.</p></div>
+    <a class="card" href="#/criar-projeto" style="display:block"><div style="font-size:24px">🌱</div><strong>Criar projeto</strong><p class="text-muted small" style="margin:4px 0 0">Mobilize vizinhos em uma causa comum.</p></a>
+  `;
   return layout(`
-  <div class="page-head"><h1>Olá, ${isDemo ? 'Usuário' : esc(u.firstName)}! 👋</h1><p>Que bom ter você por aqui. Vamos fazer seu tempo valer?</p></div>
+  <div class="page-head"><h1>Olá, ${nomeSaudacao}! 👋</h1><p>Que bom ter você por aqui. Vamos fazer seu tempo valer?</p></div>
   <div class="grid3">
     <div class="card stat"><div class="ic">⏰</div><div><strong>${fmtCredits(bal)} créditos</strong><span class="text-muted">Disponíveis para utilizar · Equivalente a ${eq}</span><div style="margin-top:8px"><a class="btn btn-outline btn-sm" href="#/carteira">Ver carteira</a></div></div></div>
     <div class="card stat"><div class="ic">🤲</div><div><strong>${fmtCredits(u.hoursShared||0)} horas</strong><span class="text-muted">Compartilhadas · Seu tempo já ajudou outras pessoas</span></div></div>
     <div class="card stat"><div class="ic">🌟</div><div><strong>${(u.activitiesCompleted||0)} atividades</strong><span class="text-muted">Concluídas · ${u.peopleHelped||0} pessoas beneficiadas</span></div></div>
   </div>
   <h2 style="margin:22px 0 10px">Ações rápidas</h2>
-  <div class="grid3">
-    <a class="card" href="#/criar?type=offer" style="display:block"><div style="font-size:24px">🎁</div><strong>Oferecer ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Publique uma oferta e acumule créditos.</p></a>
-    <a class="card" href="#/criar?type=request" style="display:block"><div style="font-size:24px">🙋</div><strong>Solicitar ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Peça apoio à comunidade com seus créditos.</p></a>
-    <a class="card" href="#/criar-projeto" style="display:block"><div style="font-size:24px">🌱</div><strong>Criar projeto</strong><p class="text-muted small" style="margin:4px 0 0">Mobilize vizinhos em uma causa comum.</p></a>
-  </div>
-  <h2 style="margin:22px 0 10px">Oportunidades para você</h2>
-  <div class="grid3">${recs.map(oppCard).join('')||'<div class="empty">Nenhuma oportunidade no momento.</div>'}</div>
-  <h2 style="margin:22px 0 10px">Projetos em destaque</h2>
-  <div class="grid3">${projs.map(projCard).join('')}</div>
+  ${acoesRapidas}
   <h2 style="margin:22px 0 10px">Atividade recente</h2>
   <div class="card"><ul class="timeline">${recent.map(t=>`<li><strong>${t.amount>0?'+':'−'}${fmtCredits(Math.abs(t.amount))} crédito${Math.abs(t.amount)==1?'':'s'}</strong> — ${esc(t.description)}<div class="kv">${fmtDate(t.date)} · saldo ${fmtCredits(t.balanceAfter)}</div></li>`).join('')||'<li>Sem movimentações ainda.</li>'}</ul></div>
+  <h2 style="margin:22px 0 10px">Oportunidades para você</h2>
+  <div class="grid3">${recs.slice(0,3).map(oppCard).join('')||'<div class="empty">Nenhuma oportunidade no momento.</div>'}</div>
+  <h2 style="margin:22px 0 10px">Projetos em destaque</h2>
+  <div class="grid3">${projs.map(projCard).join('')}</div>
   <div class="banner" style="margin-top:22px"><div><h2>Grandes mudanças começam quando alguém decide compartilhar um pouco do que tem.</h2><p class="small" style="color:#D9E3DB;margin:6px 0 0">Seu tempo vale aqui.</p></div><a class="btn btn-accent" href="#/explorar">Explorar oportunidades</a></div>
   `,'dashboard');
 }
@@ -461,9 +536,9 @@ function renderOppDetail(id){
         <h1 style="margin:10px 0">${esc(o.title)}</h1>
         <p class="text-muted">${esc(o.description)}</p>
         <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(o.durationHours)}</span><span class="meta">${fmtCredits(o.durationHours)} ${o.durationHours==1?'crédito':'créditos'}</span><span class="meta">${o.modality}</span><span class="meta">📍 ${esc(o.location)}</span><span class="meta">🗓️ ${esc(o.availability||'')}</span><span class="meta">Publicado ${fmtDate(o.publishedAt)}</span></div>
-        <div class="readme">No Colabre, o tempo é nossa unidade de troca. Cada hora de contribuição equivale a um crédito. A movimentação acontece apenas após a atividade e a confirmação mútua.</div>
+        <div class="readme">No Colabre, o tempo é nossa unidade de troca. A movimentação acontece apenas após a atividade e a confirmação mútua.</div>
       </div>
-      <div class="card"><h3>Sobre quem publicou</h3><div class="userrow" style="margin-top:10px">${avatar(u,'avatar-lg')}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location)} · nível ${esc(u.level||'Colaborador')} · ${fmtCredits(u.hoursShared||0)}h compartilhadas</div><p class="small text-muted" style="margin:6px 0 0">${esc(u.bio)}</p><div class="chips">${(u.skills||[]).map(s=>`<span class="badge badge-cat">${esc(s)}</span>`).join('')}</div></div></div></div>
+      <div class="card"><h3>Sobre quem publicou</h3><div class="userrow" style="margin-top:10px">${avatarName(u, u.id!==db.currentUserId, u.id, 'avatar-lg')}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location)} · nível ${esc(u.level||'Colaborador')} · ${fmtCredits(u.hoursShared||0)}h compartilhadas</div><p class="small text-muted" style="margin:6px 0 0">${esc(u.bio)}</p><div class="chips">${(u.skills||[]).map(s=>`<span class="badge badge-cat">${esc(s)}</span>`).join('')}</div></div></div></div>
     </div>
     <div class="card stack">
       <h3>Participar</h3>
@@ -500,7 +575,7 @@ function renderCreate(){
     </div>`;
   if(ui.createStep===3) body=`
     <h2>Informações de tempo</h2>
-    <div class="readme">No Colabre, o tempo é nossa unidade de troca. Cada hora de contribuição equivale a um crédito.</div>
+    <div class="readme">No Colabre, o tempo é nossa unidade de troca. Cada hora de ajuda corresponde a um crédito de tempo.</div>
     <div class="field" style="margin-top:12px"><label>Tempo estimado *</label>
     <select id="c-dur">${[0.5,1,1.5,2,3].map(v=>`<option value="${v}" ${c.durationHours===v?'selected':''}>${fmtHoursDesc(v)} (${fmtCredits(v)} crédito${v==1?'':'s'})</option>`).join('')}</select></div>
     <p class="kv">30 minutos = 0,5 crédito · 1 hora = 1 crédito · 2 horas = 2 créditos</p>`;
@@ -548,16 +623,27 @@ function activityCard(a){
   const otherId = a.ownerId===db.currentUserId ? a.interestedId : a.ownerId; const other=userById(otherId);
   const iAmOwner = a.ownerId===db.currentUserId;
   const mine = iAmOwner || a.interestedId===db.currentUserId;
+  const sc = db.securityCodes?.find(s=>s.activityId===a.id);
+  const chat = db.chats?.find(c=>c.activityId===a.id);
   let actions='';
   if(a.status==='interesse' && iAmOwner) actions=`<button class="btn btn-accent btn-sm" data-action="accept" data-id="${a.id}">Aceitar e confirmar</button> <button class="btn btn-outline btn-sm" data-action="cancel-act" data-id="${a.id}">Recusar</button>`;
   if(a.status==='confirmada' && mine) actions+=`<button class="btn btn-primary btn-sm" data-action="mark-done" data-id="${a.id}">Marcar como realizada</button>`;
   if(a.status==='realizada' && mine && !a[ iAmOwner?'ownerConfirmed':'interestedConfirmed']) actions+=`<button class="btn btn-accent btn-sm" data-action="confirm-hours" data-id="${a.id}">Confirmar horas (${fmtHoursDesc(a.plannedHours)})</button>`;
-  if(a.status==='concluida' && mine && !a.rated) actions+=`<button class="btn btn-outline btn-sm" data-action="rate" data-id="${a.id}">Avaliar experiência</button>`;
+  if(a.status==='concluida' && mine && !a.ratedBy?.[db.currentUserId]) actions+=`<button class="btn btn-outline btn-sm" data-action="rate" data-id="${a.id}">Avaliar experiência</button>`;
   if(['interesse','confirmada'].includes(a.status) && mine) actions+=`<button class="btn btn-outline btn-sm" data-action="cancel-act" data-id="${a.id}">Cancelar</button>`;
+  // Código de segurança e chat após aceite
+  if(a.status!=='interesse' && a.status!=='cancelada' && mine){
+    if(sc && !sc.used && a.status!=='concluida'){
+      actions+=`<button class="btn btn-code btn-sm" data-action="show-code" data-id="${a.id}">🔐 Código de segurança</button>`;
+    }
+    if(chat){
+      actions+=`<button class="btn btn-chat btn-sm" data-action="open-chat" data-id="${a.id}">💬 Conversar</button>`;
+    }
+  }
   return `<article class="opp-card">
     <div class="inline"><span class="badge ${opp.type==='offer'?'badge-offer':'badge-request'}">${opp.type==='offer'?'Oferta':'Solicitação'}</span><span class="badge badge-status">${STATUS_LABEL[a.status]||a.status}</span><span class="badge badge-cat">${a.credited?'Créditos movimentados':'Créditos pendentes'}</span></div>
     <h3>${esc(opp.title)}</h3>
-    ${avatarName(other)}<div class="kv">${iAmOwner?'Você publicou · ':'Você demonstrou interesse · '} ${fmtDate(a.createdAt)}</div>
+    ${avatarName(other, other.id!==db.currentUserId, other.id)}<div class="kv">${iAmOwner?'Você publicou · ':'Você demonstrou interesse · '} ${fmtDate(a.createdAt)}</div>
     <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(a.plannedHours)}</span><span class="meta">${fmtCredits(a.plannedHours)} créditos</span><span class="meta">Confirmações: ${a.ownerConfirmed?'✓ dono':'—'} ${a.interestedConfirmed?'✓ interesse':'—'}</span></div>
     ${a.note?`<p class="small text-muted">${esc(a.note)}</p>`:''}
     <div class="inline">${actions}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" data-action="opp-detail" data-id="${opp.id||''}">Detalhes</button></div>
@@ -565,10 +651,12 @@ function activityCard(a){
   </article>`;
 }
 function ratingForm(aid){
-  return `<div class="review" style="margin-top:10px"><h3>Avalie a experiência</h3>
-  <div class="rate" id="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-star="${n}" aria-label="${n} estrelas">★</button>`).join('')}</div>
+  const a=db.activities.find(x=>x.id===aid); const alreadyRated = a?.ratedBy?.[db.currentUserId];
+  const otherId = a.ownerId===db.currentUserId ? a.interestedId : a.ownerId; const other=userById(otherId);
+  return `<div class="review" style="margin-top:10px"><h3>Avalie a experiência</h3><p class="small text-muted">Sua avaliação para ${esc(other.name)} (1 a 5 estrelas)</p>
+  <div class="rate" id="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-star="${n}" aria-label="${n} estrelas">${alreadyRated?'★':'☆'}</button>`).join('')}</div>
   <div class="field"><label>Comentário (opcional)</label><textarea id="rate-comment" placeholder="Como foi a comunicação e a colaboração?"></textarea></div>
-  <button class="btn btn-primary btn-sm" data-action="submit-rate" data-id="${aid}">Enviar avaliação</button></div>`;
+  ${alreadyRated?'<p class="kv small">Você já avaliou esta atividade.</p>':'<button class="btn btn-primary btn-sm" data-action="submit-rate" data-id="${aid}">Enviar avaliação</button>'}</div>`;
 }
 function myActivities(){
   const uid2=db.currentUserId;
@@ -694,7 +782,7 @@ function renderWallet(){
     ${txs.map(t=>`<tr><td>${t.amount>0?'<span class="badge badge-green">Recebido</span>':t.amount<0?'<span class="badge badge-red">Utilizado</span>':'<span class="badge badge-status">Saldo</span>'}</td><td>${esc(t.description)}</td><td>${fmtDate(t.date)}</td><td><strong>${t.amount>0?'+':'−'}${fmtCredits(Math.abs(t.amount))}</strong></td><td>${fmtCredits(t.balanceAfter)}</td></tr>`).join('')}
     </tbody></table>`: `<div class="empty"><div class="big">⏰</div><h3>Sem movimentações ainda</h3><p>Ofereça ou solicite ajuda para começar a trocar tempo.</p></div>`}
   </div>
-  <div class="readme" style="margin-top:14px"><strong>Regras:</strong> 1 hora = 1 crédito · meia hora = meio crédito · sem compra ou venda · sem saldo negativo · a movimentação só ocorre após a conclusão e a confirmação mútua. Se apenas uma pessoa confirmar, o status fica como “Aguardando confirmação”.</div>
+  <div class="readme" style="margin-top:14px"><strong>Regras:</strong> Cada hora concluída equivale a um crédito de tempo; meia hora equivale a meio crédito. Sem compra ou venda de créditos. Sem saldo negativo. A movimentação só ocorre após a conclusão e a confirmação mútua. Se apenas uma pessoa confirmar, o status fica como “Aguardando confirmação”.</div>
   `,'carteira');
 }
 
@@ -731,7 +819,9 @@ function renderProfile(){
         <button class="btn btn-accent btn-block" type="submit">Salvar alterações</button>
       </form>
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
-      <button class="btn btn-outline btn-block" data-action="logout">Sair da conta</button>
+      <h3 style="margin:12px 0 8px">Configurações</h3>
+      <div class="inline"><button class="btn btn-outline" data-action="reset">Restaurar dados demonstrativos iniciais</button></div>
+      <div class="inline" style="margin-top:8px"><button class="btn btn-outline btn-block" data-action="logout">Sair da conta</button></div>
     </div>
   </div>
   `,'perfil');
@@ -746,6 +836,125 @@ function renderNotifications(){
     ${list.length?list.map(n=>`<div class="note-item ${n.read?'':'unread'}"><div style="flex:1"><strong>${esc(n.title)}</strong><div class="text-muted small">${esc(n.message)}</div><div class="kv">${fmtDate(n.date)}</div></div><div class="inline"><button class="btn btn-outline btn-sm" data-action="open-note" data-id="${n.id}">Abrir</button>${n.read?'':'<button class="btn btn-ghost btn-sm" data-action="read-note" data-id="'+n.id+'">Marcar lida</button>'}</div></div>`).join(''):
     `<div class="empty"><div class="big">🔔</div><h3>Sem notificações</h3><p>Quando alguém tiver interesse ou você receber créditos, avisaremos aqui.</p></div>`}
   </div>`,'notificacoes');
+}
+
+/* ---------- Perfil público ---------- */
+function renderPublicProfile(id){
+  const u=userById(id); if(!u||u.id===db.currentUserId) return go('perfil');
+  const myProjs=db.projects.filter(p=>p.participants.includes(u.id));
+  const myActs=db.activities.filter(a=>(a.ownerId===u.id||a.interestedId===u.id)&&a.status==='concluida');
+  return layout(`
+  <div class="page-head"><h1>Perfil de ${esc(u.name)}</h1><p>Informações públicas de ${esc(u.name)}.</p></div>
+  <div class="two-col">
+    <div class="stack">
+      <div class="public-profile-card">
+        <div class="public-profile-header">
+          <div class="public-profile-avatar" style="background:${u.color||'#2563EB'}">${esc((u.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
+          <div>
+            <h2>${esc(u.name)}</h2>
+            <div class="kv">${esc(u.location)} · na plataforma desde ${fmtDate(u.joinedAt)}</div>
+            <p class="text-muted small" style="margin:6px 0 0">${esc(u.bio||'Sem biografia cadastrada.')}</p>
+            <div class="chips" style="margin-top:8px">${(u.skills||[]).map(s=>`<span class="badge badge-cat">${esc(s)}</span>`).join('')||'<span class="kv">Nenhuma habilidade cadastrada.</span>'}</div>
+          </div>
+        </div>
+        <div class="public-profile-stats">
+          <div class="public-profile-stat"><strong>${fmtCredits(u.hoursShared||0)}h</strong><span>Horas contribuídas</span></div>
+          <div class="public-profile-stat"><strong>${u.activitiesCompleted||0}</strong><span>Trabalhos concluídos</span></div>
+          <div class="public-profile-stat"><strong>${fmtCredits(getBalance(db,u.id))}</strong><span>Créditos disponíveis</span></div>
+          <div class="public-profile-stat"><strong>${u.ratingAvg?u.ratingAvg.toFixed(1):'—'} ★</strong><span>Avaliação média (${u.ratingsCount||0})</span></div>
+        </div>
+        <div class="public-profile-actions">
+          ${chatExists(u.id)?`<button class="btn btn-primary btn-sm" data-action="start-chat-public" data-id="${u.id}">Iniciar conversa</button>`:''}
+        </div>
+      </div>
+      <div class="card"><h3>Projetos participantes (${myProjs.length})</h3><div class="stack">${myProjs.map(p=>`<div class="inline"><strong>${esc(p.title)}</strong><span class="kv">${fmtCredits(p.contributedHours)}/${fmtCredits(p.goalHours)}h</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="proj-detail" data-id="${p.id}">Ver</button></div>`).join('')||'<span class="kv">Não participa de projetos.</span>'}</div></div>
+      <div class="card"><h3>Atividades concluídas (${myActs.length})</h3><div class="stack">${myActs.map(a=>{const opp=db.opportunities.find(o=>o.id===a.oppId);return `<div class="inline"><strong>${esc(opp?.title||'(removido)')}</strong><span class="kv badge badge-status">Concluída</span></div>`;}).join('')||'<span class="kv">Nenhuma atividade concluída.</span>'}</div></div>
+    </div>
+  </div>
+  `,'perfil');
+}
+
+function chatExists(otherId){
+  return db.activities.some(a=>(a.ownerId===db.currentUserId&&a.interestedId===otherId)||(a.interestedId===db.currentUserId&&a.ownerId===otherId));
+}
+
+/* ---------- Chat ---------- */
+function renderChat(id){
+  const act=db.activities.find(x=>x.id===id); if(!act) return go('atividades');
+  const opp=db.opportunities.find(o=>o.id===act.oppId)||{title:''};
+  const otherId = act.ownerId===db.currentUserId ? act.interestedId : act.ownerId; const other=userById(otherId);
+  let chat=db.chats?.find(c=>c.activityId===id);
+  if(!chat){ chat={id:uid('c'),activityId:id,messages:[]}; db.chats.push(chat); saveDB(db); }
+  return layout(`
+  <button class="btn btn-ghost" data-action="back">← Voltar</button>
+  <div class="chat-header">
+    <div class="chat-header-avatar" style="background:${other.color||'#2563EB'}">${esc((other.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
+    <div class="chat-header-info">
+      <div class="chat-header-name">${esc(other.name)}</div>
+      <div class="chat-header-sub">Conversa sobre ${esc(opp.title)}</div>
+    </div>
+  </div>
+  <div class="chat-window" id="chat-window">
+    ${chat.messages.length?chat.messages.map(m=>{const s=m.senderId===db.currentUserId;const usr=userById(m.senderId);return `<div class="chat-msg ${s?'own':'other'}"><div class="msg-header">${esc(usr.name)}</div><div class="chat-row ${s?'own':'other'}">${s?`<div class="chat-bubble ${s?'own':'other'}">${esc(m.text)}</div><div class="chat-avatar" style="background:${usr.color||'#2563EB'}">${esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>`:`<div class="chat-avatar" style="background:${usr.color||'#2563EB'}">${esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div><div class="chat-bubble ${s?'own':'other'}">${esc(m.text)}</div>`}</div><div class="chat-time">${m.date.slice(11,16)}</div></div>`;}).join(''):`<div class="chat-empty">Nenhuma mensagem ainda. Inicie a conversa!</div>`}
+  </div>
+  <div class="chat-input-wrap">
+    <div class="chat-input">
+      <input id="chat-msg" type="text" placeholder="Digite sua mensagem...">
+      <button class="btn btn-accent" data-action="chat-send" data-id="${id}">Enviar</button>
+    </div>
+  </div>
+  `,'chat');
+}
+
+function renderChatMessage(activityId, message){
+  const act=db.activities.find(x=>x.id===activityId); if(!act) return;
+  const me=db.currentUserId; const s=message.senderId===me; const usr=userById(message.senderId);
+  const el=document.createElement('div');
+  el.className='chat-msg '+(s?'own':'other');
+  el.innerHTML='<div class="msg-header">'+esc(usr.name)+'</div><div class="chat-row '+(s?'own':'other')+'">'+(s?'<div class="chat-bubble own">'+esc(message.text)+'</div><div class="chat-avatar" style="background:'+(usr.color||'#2563EB')+'">'+esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())+'</div>':'<div class="chat-avatar" style="background:'+(usr.color||'#2563EB')+'">'+esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())+'</div><div class="chat-bubble other">'+esc(message.text)+'</div>')+'</div><div class="chat-time">'+message.date.slice(11,16)+'</div>';
+  const w=document.getElementById('chat-window');
+  if(w){ w.appendChild(el); w.scrollTop=w.scrollHeight; }
+}
+
+function renderDemoMode(){
+  const isDemo = db.currentUserId==='u1';
+  return layout(`
+  <div class="demo-banner"><span>🤖</span><b>Modo demonstração:</b> interações abaixo são simuladas com um usuário fictício para mostrar o fluxo completo da plataforma.</div>
+  <div class="page-head"><h1>Modo demonstração</h1><p>Simule o ciclo completo de um trabalho: interesse → aceitação → negociação → código de segurança → conclusão → avaliação.</p></div>
+  <div class="grid3">
+    <div class="card"><h3>1. Criar trabalho</h3><p class="small text-muted">Publique uma oferta ou solicitação para iniciar o fluxo de demonstração.</p><a class="btn btn-accent btn-block" href="#/criar">Criar oportunidade</a></div>
+    <div class="card"><h3>2. Simular interesse de outro usuário</h3><p class="small text-muted">Um usuário fictício demonstra interesse em uma de suas publicações.</p><button class="btn btn-outline btn-block" data-action="demo-simular-interesse" ${!isDemo?'disabled title="Entre como conta demo (Marina)"':''}>Simular interesse</button></div>
+    <div class="card"><h3>3. Simular fluxo completo</h3><p class="small text-muted">Aceite, gere código, converse, conclua e avalie automaticamente.</p><button class="btn btn-secondary btn-block" data-action="demo-fluxo-completo" ${!isDemo?'disabled title="Entre como conta demo (Marina)"':''}>Simular fluxo</button></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Atividades recentes para demonstração</h3>
+    <div class="grid2">${db.activities.filter(a=>a.ownerId===db.currentUserId||a.interestedId===db.currentUserId).map(a=>{const opp=db.opportunities.find(o=>o.id===a.oppId);return `<div class="inline"><strong>${esc(opp?.title||'—')}</strong><span class="kv badge badge-status">${STATUS_LABEL[a.status]||a.status}</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="opp-detail" data-id="${a.oppId||''}">Ver</button></div>`;}).join('')||'<span class="kv">Nenhuma atividade.</span>'}</div>
+  </div>
+  `,'demo');
+}
+
+/* ---------- Código de segurança ---------- */
+function renderSecurityCode(id){
+  const act=db.activities.find(x=>x.id===id); if(!act) return go('atividades');
+  const opp=db.opportunities.find(o=>o.id===act.oppId)||{title:''};
+  const sc=db.securityCodes?.find(s=>s.activityId===id);
+  return layout(`
+  <button class="btn btn-ghost" data-action="back">← Voltar</button>
+  <div class="page-head"><h1>Código de segurança</h1><p>Informe o código de 4 a 6 dígitos para confirmar a realização de <strong>${esc(opp.title)}</strong>.</p></div>
+  <div class="card security-modal">
+    <div class="kv">Atividade: <strong>${esc(opp.title)}</strong></div>
+    <div class="kv">Participante: <strong>${esc(userById(act.ownerId===db.currentUserId?act.interestedId:act.ownerId).name)}</strong></div>
+    ${!sc?`<p class="text-muted small">Nenhum código gerado ainda para esta atividade.</p>`:''}
+    <div class="security-code" id="security-code-digits">
+      ${[1,2,3,4,5,6].map(i=>`<input type="text" class="security-digit" id="sc-digit-${i}" maxlength="1" placeholder="0">`).join('')}
+    </div>
+    <div id="sc-error" class="error" style="text-align:center"></div>
+    <div class="inline" style="margin-top:16px">
+      <button class="btn btn-accent btn-block" data-action="validar-codigo" data-id="${id}">Validar código</button>
+      <button class="btn btn-outline btn-block" data-action="gerar-codigo" data-id="${id}">Gerar novo código</button>
+    </div>
+  </div>
+  `,'codigo-seguranca');
 }
 
 /* ---------- Config ---------- */
@@ -765,9 +974,13 @@ function render(){
   const {view,id}=parseRoute();
   if(view==='login'||!db.currentUserId){ if(db.currentUserId) go('dashboard'); else { renderAuth(); return; } }
   window.scrollTo(0,0);
-  const map={dashboard:renderDashboard,explorar:renderExplore,criar:renderCreate,atividades:renderActivities,projetos:renderProjects,'criar-projeto':renderCreateProject,carteira:renderWallet,perfil:renderProfile,notificacoes:renderNotifications,config:renderConfig};
+  const map={dashboard:renderDashboard,explorar:renderExplore,criar:renderCreate,atividades:renderActivities,projetos:renderProjects,'criar-projeto':renderCreateProject,carteira:renderWallet,perfil:renderProfile,notificacoes:renderNotifications};
   if(view==='oportunidade'){$('#root').innerHTML=renderOppDetail(id);return;}
   if(view==='projeto'){$('#root').innerHTML=renderProjectDetail(id);return;}
+  if(view==='perfil-publico'){$('#root').innerHTML=renderPublicProfile(id);return;}
+  if(view==='chat'){$('#root').innerHTML=renderChat(id);return;}
+  if(view==='codigo-seguranca'){$('#root').innerHTML=renderSecurityCode(id);return;}
+  if(view==='demo'){$('#root').innerHTML=renderDemoMode();return;}
   const fn=map[view]||renderDashboard;
   $('#root').innerHTML=fn();
   bindView(view);
@@ -809,9 +1022,11 @@ document.addEventListener('click',e=>{
   const u=me();
   if(a==='notif'){ go('notificacoes'); return; }
   if(a==='theme'){ toggleTheme(); render(); return; }
+  if(a==='goto-dashboard'){ go('dashboard'); return; }
+  if(a==='goto-perfil'){ go('perfil'); return; }
   if(a==='logout'){ logout(); return; }
   if(a==='demo'){ db.currentUserId='u1'; saveDB(db); location.hash='#/dashboard'; render(); return; }
-  if(a==='visitor'){ db.currentUserId='u1'; saveDB(db); location.hash='#/dashboard'; render(); toast('Você entrou como visitante (Marina Santos).'); return; }
+  if(a==='visitor'){ db.currentUserId='u9'; saveDB(db); location.hash='#/dashboard'; render(); toast('Você entrou como visitante.'); return; }
   if(a==='back'){ history.back(); return; }
   if(a==='opp-detail'){ go('oportunidade',id); return; }
   if(a==='proj-detail'){ go('projeto',id); return; }
@@ -845,15 +1060,36 @@ document.addEventListener('click',e=>{
   if(a==='open-note'){ const n=db.notifications.find(x=>x.id===id); n.read=true; saveDB(db); go(n.link.view,n.link.id); return; }
   if(a==='reset'){ confirmModal({title:'Restaurar dados?',message:'Isto apaga alterações e restaura os dados demonstrativos iniciais.',confirmLabel:'Restaurar',onConfirm:()=>{ db=resetDB(); location.hash='#/login'; render(); toast('Dados restaurados.'); }}); return; }
   if(a==='rate'){ ui.evalFor=id; render(); const b=document.querySelector('[data-star="3"]'); if(b) b.classList.add('on'); return; }
+  if(a==='goto-perfil-publico'){ go('perfil-publico', id); return; }
+  if(a==='criar-offer'){ ui.create.type='offer'; go('criar?type=offer'); render(); return; }
+  if(a==='criar-request'){ ui.create.type='request'; go('criar?type=request'); render(); return; }
+  if(a==='show-code'){ go('codigo-seguranca',id); return; }
+  if(a==='open-chat'){ go('chat',id); return; }
+  if(a==='start-chat-public'){ const act2=db.activities.find(x=>x.ownerId===db.currentUserId&&x.interestedId===id)||db.activities.find(x=>x.interestedId===db.currentUserId&&x.ownerId===id); if(act2){go('chat',act2.id);}else{toast('Não há atividade entre vocês para iniciar conversa.','error');} return; }
+  if(a==='chat-send'){ const input=$('#chat-msg'); const txt=input.value.trim(); if(!txt) return; const act3=db.activities.find(x=>x.id===id); if(!act3) return; let chat=db.chats?.find(c=>c.activityId===id); if(!chat){chat={id:uid('c'),activityId:id,messages:[]};db.chats.push(chat);} chat.messages.push({id:uid('m'),senderId:db.currentUserId,text:txt,date:new Date().toISOString()}); input.value=''; saveDB(db); renderChatMessage(id, chat.messages[chat.messages.length-1]); const w=document.getElementById('chat-window');if(w){w.scrollTop=w.scrollHeight;} return; }
+  if(a==='validar-codigo'){ const act4=db.activities.find(x=>x.id===id); if(!act4) return; const sc=db.securityCodes?.find(s=>s.activityId===id); if(!sc){$('#sc-error').textContent='Nenhum código gerado.';return;} const digits=[1,2,3,4,5,6].map(i=>$(`#sc-digit-${i}`).value).join(''); if(!digits||digits.length<4){$('#sc-error').textContent='Informe pelo menos 4 dígitos.';return;} if(digits===sc.code&&!sc.used){sc.used=true; act4.codeUsed=true; const iAmOwner=act4.ownerId===db.currentUserId; act4[iAmOwner?'interestedConfirmed':'ownerConfirmed']=true; saveDB(db); toast('Código validado! Agora você pode confirmar as horas.'); render();} else {$('#sc-error').textContent='Código incorreto ou já utilizado.'; [1,2,3,4,5,6].forEach(i=>{const d=$(`#sc-digit-${i}`);d.classList.add('error');setTimeout(()=>d.classList.remove('error'),400);}); } return; }
+  if(a==='gerar-codigo'){ const act5=db.activities.find(x=>x.id===id); if(!act5) return; const code=Math.floor(100000+Math.random()*900000).toString().slice(0,6); let sc=db.securityCodes?.find(s=>s.activityId===id); if(sc){sc.code=code;sc.used=false;}else{sc={id:uid('sc'),activityId:id,code,used:false,createdAt:new Date().toISOString()};db.securityCodes.push(sc);} act5.securityCode=code; saveDB(db); toast('Código gerado! Compartilhe com o outro participante.'); render(); return; }
+  if(a==='demo-simular-interesse'){ const demoOpp=db.opportunities.find(o=>o.ownerId==='u1'&&o.status==='published'); if(!demoOpp){toast('Nenhuma oferta da conta demo para simular.','error');return;} const existing=db.activities.find(a=>a.oppId===demoOpp.id&&a.interestedId!=='u1'); if(existing){toast('Já há interesse nesta oferta.','error');return;} db.activities.push({id:uid('a'),oppId:demoOpp.id,ownerId:'u1',interestedId:'u2',status:'interesse',plannedHours:demoOpp.durationHours,confirmedHours:0,ownerConfirmed:false,interestedConfirmed:false,credited:false,createdAt:new Date().toISOString().slice(0,10),note:'Simulação: Carlos Mendes demonstrou interesse.',securityCode:'',codeUsed:false,ratedBy:{},chatOpened:false}); notify(db,'u1','Novo interesse (simulação)','Carlos Mendes demonstrou interesse em seu trabalho.',{view:'atividades'}); saveDB(db); toast('Simulação: Carlos Mendes demonstrou interesse!'); render(); return; }
+  if(a==='demo-fluxo-completo'){ const demoOpp=db.opportunities.find(o=>o.ownerId==='u1'&&o.status==='published'); if(!demoOpp){toast('Nenhuma oferta da conta demo para simular.','error');return;} let actDemo=db.activities.find(a=>a.oppId===demoOpp.id&&a.interestedId==='u2'); if(!actDemo){actDemo={id:uid('a'),oppId:demoOpp.id,ownerId:'u1',interestedId:'u2',status:'interesse',plannedHours:demoOpp.durationHours,confirmedHours:0,ownerConfirmed:false,interestedConfirmed:false,credited:false,createdAt:new Date().toISOString().slice(0,10),note:'Simulação fluxo completo.',securityCode:'',codeUsed:false,ratedBy:{},chatOpened:false};db.activities.push(actDemo);} actDemo.status='confirmada'; let sc=db.securityCodes.find(s=>s.activityId===actDemo.id); if(!sc){sc={id:uid('sc'),activityId:actDemo.id,code:Math.floor(100000+Math.random()*900000).toString().slice(0,6),used:false,createdAt:new Date().toISOString()};db.securityCodes.push(sc);} actDemo.securityCode=sc.code; sc.used=true; actDemo.codeUsed=true; const iAmOwner=actDemo.ownerId==='u1'; actDemo[iAmOwner?'interestedConfirmed':'ownerConfirmed']=true; actDemo.ownerConfirmed=true; actDemo.interestedConfirmed=true; actDemo.status='concluida'; actDemo.confirmedHours=actDemo.plannedHours; settleActivity(db,actDemo); db.chats.push({id:uid('c'),activityId:actDemo.id,messages:[{id:uid('m'),senderId:'u2',text:'Olá! Gostaria de agendar a aula.',date:new Date().toISOString()},{id:uid('m'),senderId:'u1',text:'Oi! Pode ser sábado às 10h?',date:new Date().toISOString()},{id:uid('m'),senderId:'u2',text:'Perfeito, confirmado!',date:new Date().toISOString()}]}); actDemo.ratedBy={}; actDemo.ratedBy['u1']={stars:5,comment:'Ótimo aluno!',date:new Date().toISOString().slice(0,10)}; actDemo.ratedBy['u2']={stars:5,comment:'Excelente professora!',date:new Date().toISOString().slice(0,10)}; const otherId=actDemo.ownerId==='u1'?actDemo.interestedId:actDemo.ownerId; const allRatings=db.activities.filter(x=>x.ratedBy&&x.ratedBy[otherId]).map(x=>x.ratedBy[otherId].stars); const avg=allRatings.reduce((s,x)=>s+x,0)/allRatings.length; const otherUser=userById(otherId); otherUser.ratingAvg=Math.round(avg*10)/10; otherUser.ratingsCount=allRatings.length; saveDB(db); toast('Fluxo completo simulado com sucesso! Créditos movimentados e avaliações registradas.'); render(); return; }
 });
 document.addEventListener('click',e=>{ const s=e.target.closest('[data-star]'); if(!s) return; const n=+s.dataset.star; $$('[data-star]').forEach(b=>b.classList.toggle('on',+b.dataset.star<=n)); s.dataset.val=n; });
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-action="submit-rate"]'); if(!b) return;
-  const act=db.activities.find(x=>x.id===b.dataset.id); const stars=document.querySelectorAll('.rate button.on').length||3; const comment=$('#rate-comment')?.value.trim()||'';
-  act.rated=true; act.rating={stars,comment};
-  const otherId=act.ownerId===me().id?act.interestedId:act.ownerId; const other=userById(otherId);
-  other.ratingsCount=(other.ratingsCount||0)+1; other.ratingAvg=Math.round(((other.ratingAvg||0)*(other.ratingsCount-1)+stars)*10)/10;
-  ui.evalFor=null; saveDB(db); toast('Avaliação enviada! Obrigado.'); render();
+  const act=db.activities.find(x=>x.id===b.dataset.id); if(!act) return;
+  const starsEl=document.querySelectorAll('.rate button.on'); const stars = starsEl.length>0 ? +starsEl[starsEl.length-1].dataset.star : 3; const comment=$('#rate-comment')?.value.trim()||'';
+  if(!act.ratedBy) act.ratedBy={};
+  act.ratedBy[db.currentUserId]={stars,comment,date:new Date().toISOString().slice(0,10)};
+  const otherId=act.ownerId===db.currentUserId?act.interestedId:act.ownerId; const other=userById(otherId);
+  // Recalcular média do usuário avaliado com base em todas as avaliações recebidas
+  const allRatings = db.activities.filter(x=>x.ratedBy && x.ratedBy[otherId]).map(x=>x.ratedBy[otherId].stars);
+  if(allRatings.length>0){
+    const avg = allRatings.reduce((s,x)=>s+x,0)/allRatings.length;
+    other.ratingAvg=Math.round(avg*10)/10;
+    other.ratingsCount=allRatings.length;
+  } else {
+    other.ratingAvg=stars; other.ratingsCount=1;
+  }
+  saveDB(db); toast('Avaliação enviada! Obrigado.'); render();
 });
 $('#modal-cancel').addEventListener('click',closeModal);
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
