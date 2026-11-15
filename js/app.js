@@ -5,45 +5,7 @@ import { $, $$, esc, fmtDate, fmtCredits, fmtHoursDesc, toast, confirmModal, clo
 import { getBalance, getStats, addTransaction, settleActivity } from './modules/credits.js';
 import { filterOpportunities } from './modules/opportunities.js';
 import { projectProgress, filterProjects } from './modules/projects.js';
-import { notify, unreadCount } from './modules/notifications.js');
-
-// Injetar CSS do chat diretamente para garantir aplicação mesmo com cache
-(function(){
-  const chatCSS = `
-.chat-header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
-.chat-header-avatar{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.15)}
-.chat-header-info{flex:1;min-width:0}
-.chat-header-name{font-size:17px;font-weight:700;color:var(--ink);line-height:1.2}
-.chat-header-sub{font-size:12px;color:var(--muted);line-height:1.4}
-.chat-window{height:calc(100vh - 240px);overflow-y:auto;background:var(--bg);padding:30px 24px 100px;display:flex;flex-direction:column;gap:22px;max-width:100%}
-.chat-msg{display:flex;flex-direction:column;gap:6px;max-width:76%;animation:fadeIn .35s ease}
-.chat-msg.own{align-items:flex-end;margin-left:auto}
-.chat-msg.other{align-items:flex-start;margin-right:auto}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.chat-msg .msg-header{font-size:11px;font-weight:800;letter-spacing:.03em;margin-bottom:3px;white-space:nowrap}
-.chat-msg.own .msg-header{color:var(--primary)}
-.chat-msg.other .msg-header{color:var(--secondary)}
-.chat-avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
-.chat-bubble{padding:12px 18px;border-radius:22px;font-size:15px;line-height:1.55;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,.1);word-wrap:break-word;white-space:pre-wrap}
-.chat-bubble.own{background:var(--primary);color:#fff;border-bottom-right-radius:6px}
-.chat-bubble.other{background:#F8FAFC;color:var(--ink);border-bottom-left-radius:6px;border:1px solid var(--border)}
-[data-theme="dark"] .chat-bubble.other{background:#334155;color:#fff;border-color:#475569}
-.chat-time{font-size:10px;color:var(--muted);margin-top:5px}
-.chat-msg.own .chat-time{text-align:right;color:rgba(255,255,255,.6)}
-.chat-msg.other .chat-time{text-align:left}
-.chat-empty{text-align:center;padding:100px 20px;color:var(--muted);font-size:16px}
-.chat-input-wrap{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:16px 24px;z-index:40}
-.chat-input-inner{max-width:640px;margin:0 auto}
-.chat-input{display:flex;gap:10px;align-items:flex-end}
-.chat-input input{flex:1;padding:13px 20px;border:1px solid var(--border);border-radius:16px;background:var(--bg);color:var(--ink);font-size:15px}
-.chat-input input:focus{border-color:var(--primary);outline:none}
-.chat-input button{min-width:100px;height:48px;padding:0 24px;border-radius:14px;font-size:15px;font-weight:700}
-.chat-input .btn-accent{color:#fff}
-`;
-  const s = document.createElement('style');
-  s.textContent = chatCSS;
-  document.head.insertBefore(s, document.head.firstChild);
-})();
+import { notify, unreadCount } from './modules/notifications.js';
 
 let db = loadDB();
 const savedTheme = localStorage.getItem('colabre_theme');
@@ -53,11 +15,90 @@ const CATEGORIES = ['Educação','Tecnologia','Idiomas','Saúde e bem-estar','Ar
 const PROJ_CATEGORIES = ['Meio ambiente','Educação','Inclusão social','Tecnologia','Cultura','Infraestrutura comunitária','Saúde e bem-estar','Outros'];
 const LEVELS = ['Iniciante','Colaborador','Participante ativo','Referência comunitária','Embaixador'];
 
+/* Banco de emojis para capa de projetos, organizado por categoria */
+const PROJ_EMOJI_GROUPS = [
+  { id:'natureza', label:'Natureza', emojis:['🌱','🌿','🍃','🌳','🌲','🌵','🪴','🌻','🌸','🌼','🌺','🌹','🍀','🍁','🌾','🌴','🌈','☀️','🌙','⭐','✨','🔥','💧','🌊'] },
+  { id:'comunidade', label:'Comunidade', emojis:['🤝','🙌','🫶','❤️','💪','👥','👨‍👩‍👧','🏘️','🏡','🏫','🏛️','⛪','🏥','🚑','🚒','🧑‍🏫','🧑‍⚕️','🧑‍🌾','🧑‍🍳','🧑‍🔧','🧑‍🎨','🧑‍💻','🧑‍🚀','👶'] },
+  { id:'comida', label:'Comida', emojis:['🍎','🍊','🍋','🍇','🍉','🍓','🫐','🥑','🥕','🥦','🌽','🥔','🍞','🥖','🧀','🥚','🍲','🍛','🍝','🍜','🍰','🍪','☕','🍵'] },
+  { id:'animais', label:'Animais', emojis:['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🦆','🦉','🦋','🐝','🐢','🐬'] },
+  { id:'atividades', label:'Atividades', emojis:['🎨','🖌️','🎭','🎬','🎵','🎶','🎸','🎹','🥁','⚽','🏀','🎾','🏐','🏓','🚴','🏃','🧘','🥋','🏊','⛺','🎲','🧩','🎯','🏆'] },
+  { id:'objetos', label:'Objetos', emojis:['📚','📖','✏️','🖊️','📝','📐','🔬','🔭','💻','📱','🖥️','📷','🎥','🔧','🔨','🪚','🧰','🪛','💡','🔋','🌍','🗺️','🚀','🛠️'] },
+];
+
+/* Paleta de 16 cores para capa de projetos (versão clara / escura) */
+const PROJ_COLORS = [
+  { light:'#10B981', dark:'#059669', name:'Esmeralda' },
+  { light:'#84CC16', dark:'#65A30D', name:'Lima' },
+  { light:'#EAB308', dark:'#CA8A04', name:'Amarelo' },
+  { light:'#F59E0B', dark:'#D97706', name:'Âmbar' },
+  { light:'#F97316', dark:'#EA580C', name:'Laranja' },
+  { light:'#FB7185', dark:'#E11D48', name:'Coral' },
+  { light:'#EF4444', dark:'#DC2626', name:'Vermelho' },
+  { light:'#EC4899', dark:'#DB2777', name:'Rosa' },
+  { light:'#A855F7', dark:'#9333EA', name:'Violeta' },
+  { light:'#8B5CF6', dark:'#7C3AED', name:'Roxo' },
+  { light:'#6366F1', dark:'#4F46E5', name:'Índigo' },
+  { light:'#3B82F6', dark:'#2563EB', name:'Azul' },
+  { light:'#0EA5E9', dark:'#0284C7', name:'Céu' },
+  { light:'#06B6D4', dark:'#0891B2', name:'Ciano' },
+  { light:'#14B8A6', dark:'#0D9488', name:'Turquesa' },
+  { light:'#64748B', dark:'#475569', name:'Grafite' },
+];
+
+/* Estado da capa no formulário de criação */
+const coverState = { emoji:'🌱', color:0 };
+
+/* Capa de projetos já existentes (sem emoji/cor salvos) */
+const COVER_FALLBACKS = {
+  p1:{ emoji:'🌳', light:'#16A34A', dark:'#15803D' },
+  p2:{ emoji:'💻', light:'#3B82F6', dark:'#2563EB' },
+  p3:{ emoji:'🥕', light:'#F97316', dark:'#EA580C' },
+  p4:{ emoji:'🧘', light:'#8B5CF6', dark:'#7C3AED' },
+};
+function projectCover(p){
+  const fb = COVER_FALLBACKS[p.id] || { emoji:'🌱', light:'#10B981', dark:'#059669' };
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  return {
+    emoji: p.emoji || fb.emoji,
+    light: p.colorLight || fb.light,
+    dark: p.colorDark || fb.dark,
+    bg: isDark ? (p.colorDark || fb.dark) : (p.colorLight || fb.light)
+  };
+}
+
 const ui = { explore:{q:'',type:'todas',category:'todas',modality:'todas',duration:'todas',sort:'recentes'}, proj:{q:'',category:'todas',status:'todas',location:'todas',onlyNeeds:false}, activityTab:'todas', createStep:1, create:{type:'offer',title:'',description:'',category:'Educação',modality:'online',durationHours:1,availability:'',location:''}, createProj:{}, editMode:false, evalFor:null };
 
 function me(){ return db.users.find(u=>u.id===db.currentUserId); }
 function userById(id){ return db.users.find(u=>u.id===id) || {name:'Usuário', color:'#999'}; }
-function avatar(u, cls=''){ return `<div class="avatar ${cls}" style="background:${u.color||'#3D5145'}" aria-hidden="true">${esc((u.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>`; }
+function avatarInitials(u){ return esc((u.name||'U').split(' ').filter(Boolean).map(p=>p[0]).slice(0,2).join('').toUpperCase()); }
+function avatarPhoto(u){ return (typeof u.photo==='string' && /^data:image\//.test(u.photo)) ? u.photo : ''; }
+function avatar(u, cls=''){ const photo=avatarPhoto(u); return `<div class="avatar ${cls}" style="background:${u.color||'#3D5145'}" aria-hidden="true">${photo?`<img class="avatar-img" src="${photo}" alt="">`:avatarInitials(u)}</div>`; }
+function readAndResizeImage(file, max=480, quality=0.85){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('Não foi possível ler o arquivo.'));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error('Arquivo de imagem inválido.'));
+      img.onload=()=>{
+        try{
+          const scale=Math.min(1, max/Math.max(img.width,img.height));
+          const w=Math.max(1,Math.round(img.width*scale)), h=Math.max(1,Math.round(img.height*scale));
+          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          const ctx=cv.getContext('2d');
+          if(!ctx) return resolve(reader.result);
+          const surface=(getComputedStyle(document.documentElement).getPropertyValue('--surface')||'#fff').trim()||'#fff';
+          ctx.fillStyle=surface; ctx.fillRect(0,0,w,h);
+          ctx.drawImage(img,0,0,w,h);
+          const out=cv.toDataURL('image/jpeg',quality);
+          resolve(/^data:image\//.test(out)?out:reader.result);
+        }catch(_){ resolve(reader.result); }
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function avatarName(u, clickable=false, id='', avatarCls=''){ const click = clickable && id ? ` data-action="goto-perfil-publico" data-id="${id}" style="cursor:pointer"` : ''; return `<div class="userrow"${click}>${avatar(u, avatarCls)}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location||'')}</div></div></div>`; }
 function logout(){ db.currentUserId=null; saveDB(db); location.hash='#/login'; render(); }
 function go(view, id){ location.hash = id ? `#/${view}/${id}` : `#/${view}`; }
@@ -78,11 +119,10 @@ function layout(inner, active){
     <div class="main">
       <header class="topbar"><div class="topbar-in">
         <strong style="color:var(--primary)">Colabre</strong>
-        <span class="chip" style="background:var(--accent-light);color:#8F3B00;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:800">⏰ ${fmtCredits(getBalance(db,u.id))} créditos</span>
+        <span class="credit-chip">⏰ ${fmtCredits(getBalance(db,u.id))} créditos</span>
         <div class="spacer"></div>
-        <a class="btn btn-outline btn-sm" href="#/criar">＋ Criar</a>
         <button class="iconbtn" data-action="notif" aria-label="Notificações">🔔${un?`<span class="dot">${un}</span>`:''}</button>
-        <button class="iconbtn theme-toggle" data-action="theme" aria-label="Alternar tema">🌙</button>
+        <button class="iconbtn theme-toggle" data-action="theme" aria-label="Alternar tema">${document.documentElement.getAttribute('data-theme')==='dark'?'☀️':'🌙'}</button>
         <button class="iconbtn" data-action="logout" aria-label="Sair">↪</button>
       </div></header>
       <div class="content"><div class="page">${inner}</div></div>
@@ -180,11 +220,9 @@ function oppCard(o){
 }
 function projCard(p){
   const {pct,remaining} = projectProgress(p); const owner=userById(p.ownerId);
-  const colors={'post':'#2563EB','p1':'linear-gradient(120deg,#10B981,#2563EB)','p2':'linear-gradient(120deg,#0EA5E9,#2563EB)','p3':'linear-gradient(120deg,#F59E0B,#D97706)','p4':'linear-gradient(120deg,#8B5CF6,#2563EB)'};
-  const emojis={p1:'🌳',p2:'💻',p3:'🥕',p4:'🧘'};
-  const bg = colors[p.id]||'linear-gradient(120deg,#3D5145,#2E4238)';
+  const cover = projectCover(p);
   return `<article class="card proj-card">
-    <div class="proj-cover" style="background:${bg}"><span class="cover-emoji" aria-hidden="true">${emojis[p.id]||'🌱'}</span></div>
+    <div class="proj-cover" style="background:${cover.bg}"><span class="cover-emoji" aria-hidden="true">${cover.emoji}</span></div>
     <div class="proj-body">
       <div class="inline"><span class="badge badge-cat">${esc(p.category)}</span><span class="badge badge-status">${esc(p.status)}</span><span class="badge badge-status">${esc(p.location)}</span></div>
       <h3 style="margin:8px 0 6px">${esc(p.title)}</h3>
@@ -207,8 +245,8 @@ function renderDashboard(){
   const eq = fmtHoursDesc(bal);
   const nomeSaudacao = isVisitante ? 'Visitante' : (isDemo ? 'Usuário' : esc(u.firstName));
   const acoesRapidas = isVisitante ? `
-    <div class="card" style="opacity:0.5;pointer-events:none;background:#F1F5F9;border:1px dashed var(--border)"><div style="font-size:24px">🔒</div><strong>Oferecer ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode oferecer ajuda.</p></div>
-    <div class="card" style="opacity:0.5;pointer-events:none;background:#F1F5F9;border:1px dashed var(--border)"><div style="font-size:24px">🔒</div><strong>Solicitar ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode solicitar ajuda.</p></div>
+    <div class="card" style="opacity:0.5;pointer-events:none;background:var(--bg);border:1px dashed var(--border)"><div style="font-size:24px">🔒</div><strong>Oferecer ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode oferecer ajuda.</p></div>
+    <div class="card" style="opacity:0.5;pointer-events:none;background:var(--bg);border:1px dashed var(--border)"><div style="font-size:24px">🔒</div><strong>Solicitar ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode solicitar ajuda.</p></div>
     <a class="card" href="#/criar-projeto" style="display:block;opacity:0.5;pointer-events:none"><div style="font-size:24px">🔒</div><strong>Criar projeto</strong><p class="text-muted small" style="margin:4px 0 0">Visitante não pode criar projetos.</p></a>
   ` : `
     <div class="card" data-action="criar-offer" style="cursor:pointer"><div style="font-size:24px">🎁</div><strong>Oferecer ajuda</strong><p class="text-muted small" style="margin:4px 0 0">Publique uma oferta e acumule créditos.</p></div>
@@ -223,7 +261,7 @@ function renderDashboard(){
     <div class="card stat"><div class="ic">🌟</div><div><strong>${(u.activitiesCompleted||0)} atividades</strong><span class="text-muted">Concluídas · ${u.peopleHelped||0} pessoas beneficiadas</span></div></div>
   </div>
   <h2 style="margin:22px 0 10px">Ações rápidas</h2>
-  ${acoesRapidas}
+  <div class="grid3">${acoesRapidas}</div>
   <h2 style="margin:22px 0 10px">Atividade recente</h2>
   <div class="card"><ul class="timeline">${recent.map(t=>`<li><strong>${t.amount>0?'+':'−'}${fmtCredits(Math.abs(t.amount))} crédito${Math.abs(t.amount)==1?'':'s'}</strong> — ${esc(t.description)}<div class="kv">${fmtDate(t.date)} · saldo ${fmtCredits(t.balanceAfter)}</div></li>`).join('')||'<li>Sem movimentações ainda.</li>'}</ul></div>
   <h2 style="margin:22px 0 10px">Oportunidades para você</h2>
@@ -433,12 +471,13 @@ function renderProjects(){
 function renderProjectDetail(id){
   const p=db.projects.find(x=>x.id===id); if(!p) return renderProjects();
   const {pct,remaining}=projectProgress(p); const owner=userById(p.ownerId); const isPart=p.participants.includes(db.currentUserId); const isOwner=p.ownerId===db.currentUserId;
+  const cover=projectCover(p);
   return layout(`
   <button class="btn btn-ghost" data-action="back">← Voltar</button>
   <div class="two-col" style="margin-top:10px">
     <div class="stack">
       <div class="card" style="padding:0;overflow:hidden">
-        <div class="proj-cover" style="background:linear-gradient(120deg,#4F8062,#3D5145);height:140px"><span class="cover-emoji">🌱</span></div>
+        <div class="proj-cover" style="background:${cover.bg};height:140px"><span class="cover-emoji" aria-hidden="true">${cover.emoji}</span></div>
         <div style="padding:18px">
           <div class="inline"><span class="badge badge-cat">${esc(p.category)}</span><span class="badge badge-status">${esc(p.status)}</span><span class="badge badge-status">${esc(p.visibility)}</span></div>
           <h1 style="margin:8px 0">${esc(p.title)}</h1><p class="text-muted">${esc(p.description)}</p>
@@ -469,12 +508,45 @@ function renderProjectDetail(id){
   </div>`);
 }
 function renderCreateProject(){
+  const activeEmoji = coverState.emoji;
+  const activeColor = PROJ_COLORS[coverState.color] ? coverState.color : 0;
+  const activeColorData = PROJ_COLORS[activeColor];
+  const themeIsDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const coverBg = themeIsDark ? activeColorData.dark : activeColorData.light;
+  const emojiTabs = PROJ_EMOJI_GROUPS.map((g,i)=>`<button type="button" class="emoji-tab${i===0?' active':''}" data-emoji-cat="${g.id}" role="tab" aria-selected="${i===0}">${g.label}</button>`).join('');
+  const emojiPanels = PROJ_EMOJI_GROUPS.map((g,i)=>`<div class="emoji-panel${i===0?' active':''}" data-emoji-panel="${g.id}" role="listbox" aria-label="${g.label}">${g.emojis.map(e=>`<button type="button" class="emoji-cell${e===activeEmoji?' selected':''}" data-emoji="${e}" role="option" aria-selected="${e===activeEmoji}" title="${e}">${e}</button>`).join('')}</div>`).join('');
+  const colorSwatches = PROJ_COLORS.map((c,i)=>`<button type="button" class="color-swatch${i===activeColor?' selected':''}" data-color-index="${i}" style="--sw:${c.light};--sw-dark:${c.dark}" aria-label="${c.name}" aria-pressed="${i===activeColor}" title="${c.name}"><span class="color-check" aria-hidden="true">✓</span></button>`).join('');
   return layout(`
   <div class="page-head"><h1>Criar projeto comunitário</h1><p>Organize uma iniciativa e mobilize sua comunidade.</p></div>
   <div class="card"><form id="proj-form" novalidate>
     <div class="grid2">
       <div class="field"><label>Nome do projeto *</label><input id="pj-title" class="input" placeholder="Ex.: Revitalização da praça"></div>
       <div class="field"><label>Categoria *</label><select id="pj-cat">${PROJ_CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="field">
+      <label>Capa do projeto</label>
+      <div class="cover-builder">
+        <div class="cover-preview" id="cover-preview" style="background:${coverBg}">
+          <span class="cover-preview-glow" aria-hidden="true"></span>
+          <div class="cover-preview-top"><span class="cover-preview-label">Prévia da capa</span></div>
+          <div class="cover-preview-emoji" id="cover-preview-emoji">${activeEmoji}</div>
+          <div class="cover-preview-bottom">
+            <strong id="cover-preview-title">Nome do projeto</strong>
+            <span class="cover-preview-cat" id="cover-preview-cat">${PROJ_CATEGORIES[0]}</span>
+          </div>
+        </div>
+        <div class="cover-controls">
+          <div class="cover-group">
+            <div class="cover-group-head"><span>Ícone</span><span class="cover-value" id="cover-emoji-value">${activeEmoji}</span></div>
+            <div class="emoji-tabs" role="tablist" aria-label="Categorias de ícones">${emojiTabs}</div>
+            <div class="emoji-panels">${emojiPanels}</div>
+          </div>
+          <div class="cover-group">
+            <div class="cover-group-head"><span>Cor da capa</span><span class="cover-value" id="cover-color-value">${activeColorData.name}</span></div>
+            <div class="color-grid">${colorSwatches}</div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="field"><label>Descrição *</label><textarea id="pj-desc" placeholder="O que será feito? Quem se beneficia?"></textarea></div>
     <div class="field"><label>Objetivo principal *</label><textarea id="pj-obj" placeholder="Objetivo da iniciativa"></textarea></div>
@@ -489,7 +561,6 @@ function renderCreateProject(){
     <div class="field"><label>Habilidades necessárias (separadas por vírgula)</label><input id="pj-skills" class="input" placeholder="Jardinagem, Pintura, Organização"></div>
     <div class="field"><label>Visibilidade</label><select id="pj-vis"><option value="aberto">Aberto a todos</option><option value="local">Comunidade local</option><option value="convite">Convite restrito (simulado)</option></select></div>
     <p class="error" id="pj-error"></p>
-    <div class="review" id="pj-preview"><h3>Prévia</h3><div id="pj-preview-body" class="text-muted small">Preencha os campos para ver a prévia.</div></div>
     <div class="inline" style="margin-top:14px"><button class="btn btn-accent" type="submit">Criar projeto</button><a class="btn btn-outline" href="#/projetos">Cancelar</a></div>
   </form></div>
   `,'projetos');
@@ -528,7 +599,24 @@ function renderProfile(){
   <div class="two-col">
     <div class="stack">
       <div class="card">
-        <div class="userrow">${avatar(u,'avatar-lg')}<div><h2>${esc(u.name)}</h2><div class="kv">${esc(u.location)} · na plataforma desde ${fmtDate(u.joinedAt)} · disponibilidade: ${esc(u.availability||'')}</div><p class="text-muted small" style="margin:6px 0 0">${esc(u.bio)}</p></div></div>
+        <div class="profile-photo">
+          <div class="avatar-photo">
+            ${avatar(u,'avatar-xl')}
+            <label class="photo-edit" for="pf-photo" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></label>
+          </div>
+          <div class="profile-identity">
+            <h2>${esc(u.name)}</h2>
+            <div class="kv">${esc(u.location)} · na plataforma desde ${fmtDate(u.joinedAt)} · disponibilidade: ${esc(u.availability||'')}</div>
+            <p class="text-muted small" style="margin:6px 0 0">${esc(u.bio)}</p>
+          </div>
+        </div>
+        <div class="photo-tools">
+          <label class="btn btn-outline btn-sm" for="pf-photo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Escolher foto</label>
+          ${u.photo?'<button class="btn btn-ghost btn-sm" type="button" data-action="remove-photo">Remover foto</button>':''}
+          <span class="photo-hint">JPG, PNG ou WEBP · a imagem é ajustada automaticamente</span>
+        </div>
+        <input type="file" id="pf-photo" class="sr-only" accept="image/*">
+        <div id="pf-photo-error" class="error"></div>
         <div class="grid4" style="margin-top:14px">
           <div class="card"><strong>${fmtCredits(u.hoursShared||0)}h</strong><div class="kv">Horas contribuídas</div></div>
           <div class="card"><strong>${u.activitiesCompleted||0}</strong><div class="kv">Atividades concluídas</div></div>
@@ -581,7 +669,7 @@ function renderPublicProfile(id){
     <div class="stack">
       <div class="public-profile-card">
         <div class="public-profile-header">
-          <div class="public-profile-avatar" style="background:${u.color||'#2563EB'}">${esc((u.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
+          ${avatar(u,'public-profile-avatar')}
           <div>
             <h2>${esc(u.name)}</h2>
             <div class="kv">${esc(u.location)} · na plataforma desde ${fmtDate(u.joinedAt)}</div>
@@ -620,14 +708,14 @@ function renderChat(id){
   return layout(`
   <button class="btn btn-ghost" data-action="back">← Voltar</button>
   <div class="chat-header">
-    <div class="chat-header-avatar" style="background:${other.color||'#2563EB'}">${esc((other.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
+    ${avatar(other,'chat-header-avatar')}
     <div class="chat-header-info">
       <div class="chat-header-name">${esc(other.name)}</div>
       <div class="chat-header-sub">Conversa sobre ${esc(opp.title)}</div>
     </div>
   </div>
   <div class="chat-window" id="chat-window">
-    ${chat.messages.length?chat.messages.map(m=>{const s=m.senderId===db.currentUserId;const usr=userById(m.senderId);return `<div class="chat-msg ${s?'own':'other'}"><div class="msg-header">${esc(usr.name)}</div><div class="chat-row ${s?'own':'other'}">${s?`<div class="chat-bubble ${s?'own':'other'}">${esc(m.text)}</div><div class="chat-avatar" style="background:${usr.color||'#2563EB'}">${esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>`:`<div class="chat-avatar" style="background:${usr.color||'#2563EB'}">${esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div><div class="chat-bubble ${s?'own':'other'}">${esc(m.text)}</div>`}</div><div class="chat-time">${m.date.slice(11,16)}</div></div>`;}).join(''):`<div class="chat-empty">Nenhuma mensagem ainda. Inicie a conversa!</div>`}
+    ${chat.messages.length?chat.messages.map(m=>{const s=m.senderId===db.currentUserId;const usr=userById(m.senderId);return `<div class="chat-msg ${s?'own':'other'}"><div class="msg-header">${esc(usr.name)}</div><div class="chat-row ${s?'own':'other'}">${s?`<div class="chat-bubble ${s?'own':'other'}">${esc(m.text)}</div>${avatar(usr,'chat-avatar')}`:`${avatar(usr,'chat-avatar')}<div class="chat-bubble ${s?'own':'other'}">${esc(m.text)}</div>`}</div><div class="chat-time">${m.date.slice(11,16)}</div></div>`;}).join(''):`<div class="chat-empty">Nenhuma mensagem ainda. Inicie a conversa!</div>`}
   </div>
   <div class="chat-input-wrap">
     <div class="chat-input">
@@ -643,7 +731,7 @@ function renderChatMessage(activityId, message){
   const me=db.currentUserId; const s=message.senderId===me; const usr=userById(message.senderId);
   const el=document.createElement('div');
   el.className='chat-msg '+(s?'own':'other');
-  el.innerHTML='<div class="msg-header">'+esc(usr.name)+'</div><div class="chat-row '+(s?'own':'other')+'">'+(s?'<div class="chat-bubble own">'+esc(message.text)+'</div><div class="chat-avatar" style="background:'+(usr.color||'#2563EB')+'">'+esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())+'</div>':'<div class="chat-avatar" style="background:'+(usr.color||'#2563EB')+'">'+esc((usr.name||'U').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())+'</div><div class="chat-bubble other">'+esc(message.text)+'</div>')+'</div><div class="chat-time">'+message.date.slice(11,16)+'</div>';
+  el.innerHTML='<div class="msg-header">'+esc(usr.name)+'</div><div class="chat-row '+(s?'own':'other')+'">'+(s?'<div class="chat-bubble own">'+esc(message.text)+'</div>'+avatar(usr,'chat-avatar'):avatar(usr,'chat-avatar')+'<div class="chat-bubble other">'+esc(message.text)+'</div>')+'</div><div class="chat-time">'+message.date.slice(11,16)+'</div>';
   const w=document.getElementById('chat-window');
   if(w){ w.appendChild(el); w.scrollTop=w.scrollHeight; }
 }
@@ -729,13 +817,54 @@ function bindView(view){
     ['p-cat','p-loc','p-stat','p-needs'].forEach(x=>$('#'+x).addEventListener('change',sync));
   }
   if(view==='criar-projeto'){
-    const upd=()=>{ const t=$('#pj-title').value; $('#pj-preview-body').innerHTML = t?`<strong>${esc(t)}</strong> · ${esc($('#pj-cat').value)} · ${esc($('#pj-loc').value)} · meta ${esc($('#pj-goal').value)}h`:'Preencha os campos para ver a prévia.'; };
-    ['pj-title','pj-cat','pj-loc','pj-goal'].forEach(x=>$('#'+x).addEventListener('input',upd)); upd();
+    const preview = $('#cover-preview');
+    const syncCover = ()=>{
+      const c = PROJ_COLORS[coverState.color] || PROJ_COLORS[0];
+      const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+      preview.style.background = isDark ? c.dark : c.light;
+      $('#cover-preview-emoji').textContent = coverState.emoji;
+      $('#cover-emoji-value').textContent = coverState.emoji;
+      $('#cover-color-value').textContent = c.name;
+      const t = $('#pj-title').value.trim();
+      $('#cover-preview-title').textContent = t || 'Nome do projeto';
+      $('#cover-preview-cat').textContent = $('#pj-cat').value;
+    };
+    ['pj-title','pj-cat'].forEach(x=>$('#'+x).addEventListener('input',syncCover));
+    $('#pj-cat').addEventListener('change',syncCover);
+    syncCover();
+
+    // Abas de categorias de emojis
+    $$('#proj-form .emoji-tab').forEach(tab=>tab.addEventListener('click',()=>{
+      $$('#proj-form .emoji-tab').forEach(t=>{
+        const on = t===tab; t.classList.toggle('active',on); t.setAttribute('aria-selected',on);
+      });
+      $$('#proj-form .emoji-panel').forEach(p=>p.classList.toggle('active',p.dataset.emojiPanel===tab.dataset.emojiCat));
+    }));
+
+    // Seleção de emoji
+    $$('#proj-form .emoji-cell').forEach(cell=>cell.addEventListener('click',()=>{
+      coverState.emoji = cell.dataset.emoji;
+      $$('#proj-form .emoji-cell').forEach(c=>{
+        const on = c===cell; c.classList.toggle('selected',on); c.setAttribute('aria-selected',on);
+      });
+      syncCover();
+    }));
+
+    // Seleção de cor
+    $$('#proj-form .color-swatch').forEach(sw=>sw.addEventListener('click',()=>{
+      coverState.color = parseInt(sw.dataset.colorIndex,10)||0;
+      $$('#proj-form .color-swatch').forEach(s=>{
+        const on = s===sw; s.classList.toggle('selected',on); s.setAttribute('aria-pressed',on);
+      });
+      syncCover();
+    }));
+
     $('#proj-form').addEventListener('submit',e=>{
       e.preventDefault();
       const title=$('#pj-title').value.trim(), desc=$('#pj-desc').value.trim(), obj=$('#pj-obj').value.trim(), loc=$('#pj-loc').value.trim();
       if(title.length<5||desc.length<15||obj.length<10){$('#pj-error').textContent='Preencha nome, descrição (15+) e objetivo (10+).';return;}
-      const p={id:uid('p'),ownerId:db.currentUserId,title,description:desc,objective:obj,category:$('#pj-cat').value,location:loc,startDate:$('#pj-date').value||new Date().toISOString().slice(0,10),createdAt:new Date().toISOString().slice(0,10),goalHours:parseFloat($('#pj-goal').value)||40,contributedHours:0,expectedParticipants:parseInt($('#pj-part').value)||10,skillsNeeded:$('#pj-skills').value.split(',').map(s=>s.trim()).filter(Boolean),needs:[{title:'Organização',hours:10},{title:'Divulgação',hours:5}],participants:[db.currentUserId],status:'Ativo',visibility:$('#pj-vis').value,updates:[{date:new Date().toISOString().slice(0,10),text:'Projeto criado e aberto à comunidade.'}]};
+      const chosen = PROJ_COLORS[coverState.color] || PROJ_COLORS[0];
+      const p={id:uid('p'),ownerId:db.currentUserId,title,description:desc,objective:obj,category:$('#pj-cat').value,location:loc,startDate:$('#pj-date').value||new Date().toISOString().slice(0,10),createdAt:new Date().toISOString().slice(0,10),goalHours:parseFloat($('#pj-goal').value)||40,contributedHours:0,expectedParticipants:parseInt($('#pj-part').value)||10,skillsNeeded:$('#pj-skills').value.split(',').map(s=>s.trim()).filter(Boolean),needs:[{title:'Organização',hours:10},{title:'Divulgação',hours:5}],participants:[db.currentUserId],status:'Ativo',visibility:$('#pj-vis').value,updates:[{date:new Date().toISOString().slice(0,10),text:'Projeto criado e aberto à comunidade.'}],emoji:coverState.emoji,colorLight:chosen.light,colorDark:chosen.dark};
       db.projects.unshift(p); saveDB(db); toast('Projeto criado com sucesso!'); go('projeto',p.id);
     });
   }
@@ -743,6 +872,22 @@ function bindView(view){
     $('#profile-form').addEventListener('submit',e=>{
       e.preventDefault(); const u=me();
       u.name=$('#pf-name').value.trim()||u.name; u.firstName=u.name.split(' ')[0]; u.location=$('#pf-loc').value.trim(); u.bio=$('#pf-bio').value.trim(); u.availability=$('#pf-avail').value.trim(); saveDB(db); toast('Perfil atualizado!'); render();
+    });
+    $('#pf-photo').addEventListener('change',async e=>{
+      const file=e.target.files&&e.target.files[0];
+      const err=$('#pf-photo-error');
+      if(!file) return;
+      err.textContent='';
+      if(!file.type.startsWith('image/')){ err.textContent='Escolha um arquivo de imagem (JPG, PNG ou WEBP).'; e.target.value=''; return; }
+      if(file.size>12*1024*1024){ err.textContent='A imagem deve ter no máximo 12 MB.'; e.target.value=''; return; }
+      try{
+        const photo=await readAndResizeImage(file);
+        const u=me(); u.photo=photo; saveDB(db);
+        toast('Foto de perfil atualizada!'); render();
+      }catch(ex){
+        err.textContent=ex.message||'Não foi possível carregar esta imagem. Tente outra.';
+        e.target.value='';
+      }
     });
   }
 }
@@ -757,6 +902,7 @@ document.addEventListener('click',e=>{
   if(a==='goto-dashboard'){ go('dashboard'); return; }
   if(a==='goto-perfil'){ go('perfil'); return; }
   if(a==='logout'){ logout(); return; }
+  if(a==='remove-photo'){ const u2=me(); delete u2.photo; saveDB(db); toast('Foto de perfil removida.'); render(); return; }
   if(a==='demo'){ db.currentUserId='u1'; saveDB(db); location.hash='#/dashboard'; render(); return; }
   if(a==='visitor'){ db.currentUserId='u9'; saveDB(db); location.hash='#/dashboard'; render(); toast('Você entrou como visitante.'); return; }
   if(a==='back'){ history.back(); return; }
