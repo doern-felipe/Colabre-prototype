@@ -337,6 +337,33 @@ function projectCover(p){
 const ui = { explore:{q:'',type:'todas',category:'todas',modality:'todas',duration:'todas',sort:'recentes'}, proj:{q:'',category:'todas',status:'todas',location:'todas',onlyNeeds:false}, activityTab:'todas', createStep:1, create:{type:'offer',title:'',description:'',category:'Educação',modality:'online',durationHours:1,availability:'',location:''}, createProj:{}, editMode:false, evalFor:null };
 
 function me(){ return db.users.find(u=>u.id===db.currentUserId); }
+function isVisitor(){ return db.currentUserId==='u9'; }
+function visitorLock(title, active){
+  return layout(`
+  <div class="page-head"><h1>${title}</h1><p>Esta ação não está disponível no modo visitante.</p></div>
+  <div class="card empty"><div class="big">🔒</div><h3>Modo visitante</h3><p>Você pode explorar oportunidades e projetos livremente, mas não pode criar nem aceitar ajuda enquanto estiver como visitante.</p><div class="inline" style="justify-content:center;margin-top:12px"><a class="btn btn-primary" href="#/explorar">Explorar oportunidades</a><button class="btn btn-outline" data-action="logout">Sair do modo visitante</button></div></div>`, active);
+}
+function projectUrl(id){ return location.href.split('#')[0] + '#/projeto/' + encodeURIComponent(id); }
+const PENDING_KEY='colabre_pending_route';
+function rememberPendingRoute(){ const h=location.hash; if(/^#\/(projeto|oportunidade|perfil-publico)\//.test(h)){ try{ sessionStorage.setItem(PENDING_KEY,h); }catch(_){} } }
+function takePendingRoute(fallback='#/dashboard'){ let h=null; try{ h=sessionStorage.getItem(PENDING_KEY); if(h) sessionStorage.removeItem(PENDING_KEY); }catch(_){} return h||fallback; }
+async function copyText(text){
+  try{ if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); return true; } }catch(_){}
+  try{
+    const ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly','');
+    ta.style.position='fixed'; ta.style.top='-1000px'; document.body.appendChild(ta);
+    ta.select(); const ok=document.execCommand('copy'); ta.remove(); return ok;
+  }catch(_){ return false; }
+}
+async function shareProject(p){
+  const url=projectUrl(p.id);
+  if(navigator.share){
+    try{ await navigator.share({title:p.title,text:`Participe do projeto "${p.title}" no Colabre.`,url}); return; }
+    catch(err){ if(err && err.name==='AbortError') return; }
+  }
+  const ok=await copyText(url);
+  toast(ok?'Link do projeto copiado!':'Não foi possível copiar o link. Selecione o endereço exibido.', ok?'success':'error');
+}
 function userById(id){ return db.users.find(u=>u.id===id) || {name:'Usuário', color:'#999'}; }
 function avatarInitials(u){ return esc((u.name||'U').split(' ').filter(Boolean).map(p=>p[0]).slice(0,2).join('').toUpperCase()); }
 function avatarPhoto(u){ return (typeof u.photo==='string' && /^data:image\//.test(u.photo)) ? u.photo : ''; }
@@ -430,7 +457,7 @@ function renderAuth(){
         <h2 style="margin:10px 0 4px">Entrar na plataforma</h2>
         <p class="text-muted small">Use a conta demo ou crie uma conta para explorar.</p>
         <form id="login-form" novalidate>
-          <div class="field"><label for="login-email">E-mail</label><input id="login-email" type="email" placeholder="demo@tempovale.com" required></div>
+          <div class="field"><label for="login-email">E-mail</label><input id="login-email" type="email" placeholder="demo@colabre.com" required></div>
           <div class="field"><label for="login-pass">Senha</label><input id="login-pass" type="password" placeholder="Qualquer senha (demo)" required></div>
           <p class="error" id="login-error"></p>
           <button class="btn btn-accent btn-block" type="submit">Entrar</button>
@@ -459,7 +486,7 @@ function renderAuth(){
     const found = db.users.find(u=>u.email.toLowerCase()===email);
     if(!email || !pass){ $('#login-error').textContent='Preencha e-mail e senha.'; return; }
     if(!found){ $('#login-error').textContent='Conta não encontrada. Crie uma conta ou use a demonstração.'; return; }
-    db.currentUserId = found.id; saveDB(db); location.hash='#/dashboard'; render();
+    db.currentUserId = found.id; saveDB(db); location.hash=takePendingRoute(); render();
   });
   $('#signup-form').addEventListener('submit', e=>{
     e.preventDefault();
@@ -470,7 +497,7 @@ function renderAuth(){
     if(db.users.some(u=>u.email.toLowerCase()===email)){ $('#su-error').textContent='Este e-mail já está cadastrado.'; return; }
     const colors=['#3D5145','#CC5500','#4F8062','#2F5D6C','#9C4A6B','#8A6D3B'];
     const nu = {id:uid('u'), name, firstName:name.split(' ')[0], email, password:pass, color:colors[db.users.length%colors.length], bio:'Novo participante do Colabre.', location:'Minha comunidade', skills:[], hoursShared:0, activitiesCompleted:0, peopleHelped:0, ratingAvg:0, ratingsCount:0, joinedAt:new Date().toISOString().slice(0,10), availability:'A combinar', level:'Iniciante'};
-    db.users.push(nu); addTransaction(db, nu.id, 2, 'Crédito de boas-vindas'); db.currentUserId=nu.id; saveDB(db); location.hash='#/dashboard'; render();
+    db.users.push(nu); addTransaction(db, nu.id, 2, 'Crédito de boas-vindas'); db.currentUserId=nu.id; saveDB(db); location.hash=takePendingRoute(); render();
     setTimeout(()=>toast('Conta criada! Você recebeu 2 créditos de boas-vindas.'),100);
   });
 }
@@ -478,7 +505,7 @@ function renderAuth(){
 /* ---------- Componentes ---------- */
 function oppCard(o){
   const u = userById(o.ownerId); const mine = o.ownerId===db.currentUserId;
-  return `<article class="opp-card">
+    return `<article class="opp-card">
     <div class="inline"><span class="badge ${o.type==='offer'?'badge-offer':'badge-request'}">${o.type==='offer'?'OFERTA DE AJUDA':'SOLICITAÇÃO DE AJUDA'}</span><span class="badge badge-cat">${esc(o.category)}</span>${mine?'<span class="badge badge-status">Sua publicação</span>':''}</div>
     <h3>${esc(o.title)}</h3><p>${esc(o.description)}</p>
     ${avatarName(u, u.id!==db.currentUserId, u.id)}
@@ -580,7 +607,7 @@ function renderOppDetail(id){
     </div>
     <div class="card stack">
       <h3>Participar</h3>
-      ${isMine?'<p class="text-muted small">Esta é a sua publicação. Você pode acompanhá-la em Minhas atividades.</p><a class="btn btn-primary btn-block" href="#/atividades">Ver em Minhas atividades</a>':
+      ${isVisitor()?'<p class="text-muted small">Modo visitante: entre com uma conta para demonstrar interesse ou aceitar ajuda.</p><button class="btn btn-outline btn-block" data-action="logout">Sair do modo visitante</button>':isMine?'<p class="text-muted small">Esta é a sua publicação. Você pode acompanhá-la em Minhas atividades.</p><a class="btn btn-primary btn-block" href="#/atividades">Ver em Minhas atividades</a>':
         myAct?`<p class="text-muted small">Você já demonstrou interesse nesta oportunidade. Status: <strong>${myAct.status}</strong></p><a class="btn btn-primary btn-block" href="#/atividades">Ver em Minhas atividades</a>`:
         `<button class="btn btn-accent btn-block" data-action="interest" data-id="${o.id}">${o.type==='offer'?'Tenho interesse':'Quero ajudar'}</button>
          <p class="kv">Demonstração de interesse não conclui a atividade nem movimenta créditos. A confirmação das horas é necessária.</p>`}
@@ -590,6 +617,7 @@ function renderOppDetail(id){
 
 /* ---------- Criar oportunidade (multietapas) ---------- */
 function renderCreate(){
+  if(isVisitor()) return visitorLock('Criar oportunidade','criar');
   const c=ui.create; const typeQ=new URLSearchParams(location.hash.split('?')[1]||''); if(typeQ.get('type')) c.type=typeQ.get('type');
   const steps=['Tipo','Informações','Tempo','Revisão'];
   let body='';
@@ -647,6 +675,7 @@ function validateStep(){
   return true;
 }
 function publishOpp(){
+  if(isVisitor()){ toast('Modo visitante: você não pode publicar oportunidades.','error'); return; }
   const c=ui.create;
   const o={id:uid('o'),ownerId:db.currentUserId,type:c.type,title:c.title,description:c.description,category:c.category,modality:c.modality,durationHours:c.durationHours,availability:c.availability||'A combinar',location:c.location||(c.modality==='online'?'Online':'A combinar'),publishedAt:new Date().toISOString().slice(0,10),status:'published'};
   db.opportunities.unshift(o); saveDB(db);
@@ -678,23 +707,39 @@ function activityCard(a){
       actions+=`<button class="btn btn-chat btn-sm" data-action="open-chat" data-id="${a.id}">💬 Conversar</button>`;
     }
   }
-  return `<article class="opp-card">
+  let feedback='';
+  if(a.status==='concluida'){
+    const mineR=a.ratedBy?.[db.currentUserId], theirsR=a.ratedBy?.[otherId];
+    const stars=n=>'★'.repeat(n)+'☆'.repeat(Math.max(0,5-n));
+    feedback=`<div class="rating-summary"><span><strong>Sua avaliação:</strong> ${mineR?`<span class="stars">${stars(mineR.stars)}</span> <span class="kv">${fmtDate(mineR.date)}</span>`:'pendente'}</span><span><strong>Avaliação de ${esc(other.name)}:</strong> ${theirsR?`<span class="stars">${stars(theirsR.stars)}</span> <span class="kv">${fmtDate(theirsR.date)}</span>`:'pendente'}</span></div>`;
+  }  return `<article class="opp-card">
     <div class="inline"><span class="badge ${opp.type==='offer'?'badge-offer':'badge-request'}">${opp.type==='offer'?'Oferta':'Solicitação'}</span><span class="badge badge-status">${STATUS_LABEL[a.status]||a.status}</span><span class="badge badge-cat">${a.credited?'Créditos movimentados':'Créditos pendentes'}</span></div>
     <h3>${esc(opp.title)}</h3>
     ${avatarName(other, other.id!==db.currentUserId, other.id)}<div class="kv">${iAmOwner?'Você publicou · ':'Você demonstrou interesse · '} ${fmtDate(a.createdAt)}</div>
     <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(a.plannedHours)}</span><span class="meta">${fmtCredits(a.plannedHours)} créditos</span><span class="meta">Confirmações: ${a.ownerConfirmed?'✓ dono':'—'} ${a.interestedConfirmed?'✓ interesse':'—'}</span></div>
     ${a.note?`<p class="small text-muted">${esc(a.note)}</p>`:''}
+    ${feedback}
     <div class="inline">${actions}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" data-action="opp-detail" data-id="${opp.id||''}">Detalhes</button></div>
     ${ui.evalFor===a.id?ratingForm(a.id):''}
   </article>`;
 }
 function ratingForm(aid){
-  const a=db.activities.find(x=>x.id===aid); const alreadyRated = a?.ratedBy?.[db.currentUserId];
+  const a=db.activities.find(x=>x.id===aid); const alreadyRated = a?.ratedBy?.[db.currentUserId]; const myStars=alreadyRated?(Number(alreadyRated.stars)||0):0;
   const otherId = a.ownerId===db.currentUserId ? a.interestedId : a.ownerId; const other=userById(otherId);
   return `<div class="review" style="margin-top:10px"><h3>Avalie a experiência</h3><p class="small text-muted">Sua avaliação para ${esc(other.name)} (1 a 5 estrelas)</p>
-  <div class="rate" id="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-star="${n}" aria-label="${n} estrelas">${alreadyRated?'★':'☆'}</button>`).join('')}</div>
+  <div class="rate" id="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-star="${n}" class="${n<=myStars?'on':''}" aria-label="${n} estrelas">${n<=myStars?'★':'☆'}</button>`).join('')}</div>
   <div class="field"><label>Comentário (opcional)</label><textarea id="rate-comment" placeholder="Como foi a comunicação e a colaboração?"></textarea></div>
-  ${alreadyRated?'<p class="kv small">Você já avaliou esta atividade.</p>':'<button class="btn btn-primary btn-sm" data-action="submit-rate" data-id="${aid}">Enviar avaliação</button>'}</div>`;
+  ${alreadyRated?'<p class="kv small">Você já avaliou esta atividade.</p>':'<button class="btn btn-primary btn-sm" data-action="submit-rate" data-id="'+aid+'">Enviar avaliação</button>'}</div>`;
+}
+function addRatingToUser(user, stars, replaceStars=null){
+  if(!user) return;
+  let count=Math.max(0, Number(user.ratingsCount)||0);
+  let sum=(Number(user.ratingAvg)||0)*count;
+  if(replaceStars!=null && count>0){ sum-=Number(replaceStars)||0; } else { count+=1; }
+  sum+=Number(stars)||0;
+  if(count<1) count=1;
+  user.ratingsCount=count;
+  user.ratingAvg=Math.round((sum/count)*10)/10;
 }
 function myActivities(){
   const uid2=db.currentUserId;
@@ -724,7 +769,7 @@ function renderProjects(){
   const f=ui.proj; const list=filterProjects(db.projects,f);
   const locs=[...new Set(db.projects.map(p=>p.location))];
   return layout(`
-  <div class="page-head inline" style="align-items:flex-start"><div style="flex:1"><h1>Juntos podemos fazer mais.</h1><p>Descubra projetos comunitários e encontre uma maneira de contribuir.</p></div><a class="btn btn-accent" href="#/criar-projeto">Criar projeto</a></div>
+  <div class="page-head inline" style="align-items:flex-start"><div style="flex:1"><h1>Juntos podemos fazer mais.</h1><p>Descubra projetos comunitários e encontre uma maneira de contribuir.</p></div>${isVisitor()?'<span class="badge badge-status">🔒 Modo visitante</span>':'<a class="btn btn-accent" href="#/criar-projeto">Criar projeto</a>'}</div>
   <div class="filters"><div class="toolbar"><div class="grow"><input class="input" id="q-proj" placeholder="Buscar projeto..." value="${esc(f.q)}" aria-label="Buscar projetos"></div></div>
     <div class="row">
       <div class="field" style="margin:0"><label>Categoria</label><select id="p-cat"><option value="todas">Todas</option>${PROJ_CATEGORIES.map(c=>`<option ${f.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -733,7 +778,7 @@ function renderProjects(){
       <label class="inline small" style="gap:6px"><input type="checkbox" id="p-needs" ${f.onlyNeeds?'checked':''}> Só quem precisa de voluntários</label>
     </div></div>
   ${list.length?`<div class="grid3">${list.map(projCard).join('')}</div>`:`<div class="card empty"><div class="big">🌱</div><h3>Nenhum projeto encontrado</h3><p>Ajuste os filtros ou crie um novo projeto.</p></div>`}
-  <div style="margin-top:16px;text-align:center"><a class="btn btn-accent" href="#/criar-projeto">Criar projeto</a></div>
+  <div style="margin-top:16px;text-align:center">${isVisitor()?'<span class="badge badge-status">🔒 Modo visitante</span>':'<a class="btn btn-accent" href="#/criar-projeto">Criar projeto</a>'}</div>
   `,'projetos');
 }
 function renderProjectDetail(id){
@@ -770,12 +815,20 @@ function renderProjectDetail(id){
     </div>
     <div class="card stack">
       <h3>Participar</h3>
-      ${isPart?'<button class="btn btn-primary btn-block" disabled>Você já participa</button>':`<button class="btn btn-accent btn-block" data-action="join-proj" data-id="${p.id}">Participar do projeto</button>`}
+      ${isVisitor()?'<p class="text-muted small">Modo visitante: entre com uma conta para participar do projeto.</p><button class="btn btn-outline btn-block" data-action="logout">Sair do modo visitante</button>':isPart?'<button class="btn btn-primary btn-block" disabled>Você já participa</button>':`<button class="btn btn-accent btn-block" data-action="join-proj" data-id="${p.id}">Participar do projeto</button>`}
       ${isOwner?`<button class="btn btn-outline btn-block" data-action="add-update" data-id="${p.id}">Registrar atualização</button><p class="kv">Responsável: você pode registrar horas confirmadas dos participantes.</p>`:'<p class="kv">Ao participar, suas horas confirmadas compõem o progresso do projeto.</p>'}
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <h3>Compartilhar projeto</h3>
+      <div class="field" style="margin-bottom:0">
+        <label for="proj-share-url">Link direto do projeto</label>
+        <div class="inline" style="flex-wrap:nowrap"><input id="proj-share-url" class="input" style="flex:1;min-width:0" readonly value="${esc(projectUrl(p.id))}" aria-label="Link direto do projeto"><button class="btn btn-outline btn-sm" data-action="share-project" data-id="${p.id}">Compartilhar</button></div>
+        <p class="kv" style="margin-top:6px">Quem abrir este link vai direto para este projeto.</p>
+      </div>
     </div>
   </div>`);
 }
 function renderCreateProject(){
+  if(isVisitor()) return visitorLock('Criar projeto','projetos');
   const activeEmoji = coverState.emoji;
   const activeColor = PROJ_COLORS[coverState.color] ? coverState.color : 0;
   const activeColorData = PROJ_COLORS[activeColor];
@@ -870,7 +923,7 @@ function renderProfile(){
         <div class="profile-photo">
           <div class="avatar-photo">
             ${avatar(u,'avatar-xl')}
-            <label class="photo-edit" for="pf-photo" title="Alterar foto de perfil" aria-label="Alterar foto de perfil">📷</label>
+            <label class="photo-edit" for="pf-photo" title="Alterar foto de perfil" aria-label="Alterar foto de perfil"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></label>
           </div>
           <div class="profile-identity">
             <h2>${esc(u.name)}</h2>
@@ -879,7 +932,7 @@ function renderProfile(){
           </div>
         </div>
         <div class="photo-tools">
-          <label class="btn btn-outline btn-sm" for="pf-photo">📷 Escolher foto</label>
+          <label class="btn btn-outline btn-sm" for="pf-photo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Escolher foto</label>
           ${u.photo?'<button class="btn btn-ghost btn-sm" type="button" data-action="remove-photo">Remover foto</button>':''}
           <span class="photo-hint">JPG, PNG ou WEBP · a imagem é ajustada automaticamente</span>
         </div>
@@ -892,7 +945,7 @@ function renderProfile(){
           <div class="card"><strong>${u.ratingAvg?u.ratingAvg.toFixed(1):'—'} ★</strong><div class="kv">Avaliação média (${u.ratingsCount||0})</div></div>
         </div>
       </div>
-      <div class="card"><h3>Habilidades</h3><div class="chips">${(u.skills||[]).map(s=>`<span class="badge badge-cat">${esc(s)}</span>`).join('')||'<span class="kv">Nenhuma habilidade cadastrada.</span>'}</div>
+      <div class="card"><h3>Habilidades</h3><div class="chips">${(u.skills||[]).map((s,i)=>`<span class="badge badge-cat skill-badge">${esc(s)}<button type="button" class="skill-remove" data-action="remove-skill" data-index="${i}" aria-label="Remover ${esc(s)}" title="Remover habilidade">×</button></span>`).join('')||'<span class="kv">Nenhuma habilidade cadastrada.</span>'}</div>
       <div class="toolbar"><input id="new-skill" class="input" placeholder="Nova habilidade" aria-label="Nova habilidade"><button class="btn btn-outline btn-sm" data-action="add-skill">Adicionar</button></div></div>
       <div class="card"><h3>Níveis de participação</h3><p class="kv">O nível considera atividades concluídas, consistência e avaliações — não apenas o saldo. Níveis altos não autorizam automaticamente atividades sensíveis.</p><div class="levels">${LEVELS.map((l,i)=>`<span class="level-chip ${i===li?'cur':''}">${i+1}. ${l}${i===li?' ✓':''}</span>`).join('')}</div></div>
       <div class="card"><h3>Projetos participantes (${myProjs.length})</h3><div class="stack">${myProjs.map(p=>`<div class="inline"><strong>${esc(p.title)}</strong><span class="kv">${fmtCredits(p.contributedHours)}/${fmtCredits(p.goalHours)}h</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="proj-detail" data-id="${p.id}">Ver</button></div>`).join('')||'<span class="kv">Você ainda não participa de projetos.</span>'}</div></div>
@@ -952,7 +1005,7 @@ function renderPublicProfile(id){
           <div class="public-profile-stat"><strong>${u.ratingAvg?u.ratingAvg.toFixed(1):'—'} ★</strong><span>Avaliação média (${u.ratingsCount||0})</span></div>
         </div>
         <div class="public-profile-actions">
-          ${chatExists(u.id)?`<button class="btn btn-primary btn-sm" data-action="start-chat-public" data-id="${u.id}">Iniciar conversa</button>`:''}
+          <button class="btn btn-primary btn-sm" data-action="start-chat-public" data-id="${u.id}">💬 Iniciar conversa</button>
         </div>
       </div>
       <div class="card"><h3>Projetos participantes (${myProjs.length})</h3><div class="stack">${myProjs.map(p=>`<div class="inline"><strong>${esc(p.title)}</strong><span class="kv">${fmtCredits(p.contributedHours)}/${fmtCredits(p.goalHours)}h</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="proj-detail" data-id="${p.id}">Ver</button></div>`).join('')||'<span class="kv">Não participa de projetos.</span>'}</div></div>
@@ -968,18 +1021,28 @@ function chatExists(otherId){
 
 /* ---------- Chat ---------- */
 function renderChat(id){
-  const act=db.activities.find(x=>x.id===id); if(!act) return go('atividades');
-  const opp=db.opportunities.find(o=>o.id===act.oppId)||{title:''};
-  const otherId = act.ownerId===db.currentUserId ? act.interestedId : act.ownerId; const other=userById(otherId);
-  let chat=db.chats?.find(c=>c.activityId===id);
-  if(!chat){ chat={id:uid('c'),activityId:id,messages:[]}; db.chats.push(chat); saveDB(db); }
+  let act=db.activities.find(x=>x.id===id);
+  let chat=null, other=null, chatTitle='';
+  if(act){
+    const opp=db.opportunities.find(o=>o.id===act.oppId)||{title:''};
+    const otherId = act.ownerId===db.currentUserId ? act.interestedId : act.ownerId; other=userById(otherId);
+    chat=db.chats?.find(c=>c.activityId===id);
+    if(!chat){ chat={id:uid('c'),activityId:id,messages:[]}; db.chats.push(chat); saveDB(db); }
+    chatTitle='Conversa sobre '+esc(opp.title);
+  } else {
+    chat=db.chats?.find(c=>c.id===id && Array.isArray(c.participants));
+    if(!chat) return go('perfil');
+    const otherId=chat.participants.find(x=>x!==db.currentUserId);
+    other=userById(otherId);
+    chatTitle='Conversa direta';
+  }
   return layout(`
   <button class="btn btn-ghost" data-action="back">← Voltar</button>
   <div class="chat-header">
     ${avatar(other,'chat-header-avatar')}
     <div class="chat-header-info">
       <div class="chat-header-name">${esc(other.name)}</div>
-      <div class="chat-header-sub">Conversa sobre ${esc(opp.title)}</div>
+      <div class="chat-header-sub">${chatTitle}</div>
     </div>
   </div>
   <div class="chat-window" id="chat-window">
@@ -988,14 +1051,14 @@ function renderChat(id){
   <div class="chat-input-wrap">
     <div class="chat-input">
       <input id="chat-msg" type="text" placeholder="Digite sua mensagem...">
-      <button class="btn btn-accent" data-action="chat-send" data-id="${id}">Enviar</button>
+      <button class="btn btn-accent" data-action="chat-send" data-id="${chat.id}">Enviar</button>
     </div>
   </div>
   `,'chat');
 }
 
-function renderChatMessage(activityId, message){
-  const act=db.activities.find(x=>x.id===activityId); if(!act) return;
+function renderChatMessage(chatId, message){
+  const chat0=db.chats?.find(c=>c.id===chatId || c.activityId===chatId); if(!chat0) return;
   const me=db.currentUserId; const s=message.senderId===me; const usr=userById(message.senderId);
   const el=document.createElement('div');
   el.className='chat-msg '+(s?'own':'other');
@@ -1060,7 +1123,7 @@ function renderConfig(){
 /* ---------- Router ---------- */
 function render(){
   const {view,id}=parseRoute();
-  if(view==='login'||!db.currentUserId){ if(db.currentUserId) go('dashboard'); else { renderAuth(); return; } }
+  if(view==='login'||!db.currentUserId){ if(db.currentUserId) go('dashboard'); else { rememberPendingRoute(); renderAuth(); return; } }
   window.scrollTo(0,0);
   const map={dashboard:renderDashboard,explorar:renderExplore,criar:renderCreate,atividades:renderActivities,projetos:renderProjects,'criar-projeto':renderCreateProject,carteira:renderWallet,perfil:renderProfile,notificacoes:renderNotifications};
   if(view==='oportunidade'){$('#root').innerHTML=renderOppDetail(id);return;}
@@ -1085,6 +1148,7 @@ function bindView(view){
     ['p-cat','p-loc','p-stat','p-needs'].forEach(x=>$('#'+x).addEventListener('change',sync));
   }
   if(view==='criar-projeto'){
+    if(!$('#proj-form')) return;
     const preview = $('#cover-preview');
     const syncCover = ()=>{
       const c = PROJ_COLORS[coverState.color] || PROJ_COLORS[0];
@@ -1129,6 +1193,7 @@ function bindView(view){
 
     $('#proj-form').addEventListener('submit',e=>{
       e.preventDefault();
+      if(isVisitor()){ toast('Modo visitante: você não pode criar projetos.','error'); return; }
       const title=$('#pj-title').value.trim(), desc=$('#pj-desc').value.trim(), obj=$('#pj-obj').value.trim(), loc=$('#pj-loc').value.trim();
       if(title.length<5||desc.length<15||obj.length<10){$('#pj-error').textContent='Preencha nome, descrição (15+) e objetivo (10+).';return;}
       const chosen = PROJ_COLORS[coverState.color] || PROJ_COLORS[0];
@@ -1160,19 +1225,55 @@ function bindView(view){
   }
 }
 
+/* ---------- Atualização de projeto ---------- */
+let updateProjectId=null;
+function updatePreview(){
+  const p=db.projects.find(x=>x.id===updateProjectId); if(!p) return;
+  const add=Math.max(0,parseFloat($('#update-hours').value)||0);
+  const total=Math.round((p.contributedHours+add)*10)/10;
+  const pct=Math.min(100,Math.round((total/p.goalHours)*100)||0);
+  $('#update-preview').textContent=`Novo total: ${fmtCredits(total)}h de ${fmtCredits(p.goalHours)}h · ${pct}% da meta`;
+}
+function openUpdateModal(p){
+  updateProjectId=p.id;
+  $('#update-modal-project').textContent=p.title;
+  $('#update-text').value='';
+  $('#update-hours').value='0';
+  $('#update-error').textContent='';
+  updatePreview();
+  $('#update-modal').classList.add('open');
+  setTimeout(()=>$('#update-text').focus(),60);
+}
+function closeUpdateModal(){ $('#update-modal').classList.remove('open'); updateProjectId=null; }
+function saveProjectUpdate(){
+  const p=db.projects.find(x=>x.id===updateProjectId); if(!p) return;
+  const text=$('#update-text').value.trim();
+  const add=parseFloat($('#update-hours').value)||0;
+  if(text.length<5){ $('#update-error').textContent='Escreva pelo menos 5 caracteres para registrar a atualização.'; $('#update-text').focus(); return; }
+  if(add<0 || !isFinite(add)){ $('#update-error').textContent='Informe uma quantidade de horas válida.'; return; }
+  p.updates.push({date:new Date().toISOString().slice(0,10),text});
+  if(add>0){
+    p.contributedHours=Math.round((p.contributedHours+add)*10)/10;
+    const {pct}=projectProgress(p);
+    if(pct>=100) p.status='Concluído'; else if(pct>=70) p.status='Concluindo';
+  }
+  saveDB(db); closeUpdateModal(); toast('Atualização registrada!'); render();
+}
 /* ---------- Ações globais ---------- */
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-action]'); if(!el) return;
   const a=el.dataset.action, id=el.dataset.id;
   const u=me();
+  const visitorBlocked=['interest','accept','join-proj','publish','mark-done','confirm-hours','cancel-act','add-update'];
+  if(isVisitor() && visitorBlocked.includes(a)){ toast('Modo visitante: crie uma conta para criar ou aceitar ajuda.','error'); return; }
   if(a==='notif'){ go('notificacoes'); return; }
   if(a==='theme'){ toggleTheme(); render(); return; }
   if(a==='goto-dashboard'){ go('dashboard'); return; }
   if(a==='goto-perfil'){ go('perfil'); return; }
   if(a==='logout'){ logout(); return; }
   if(a==='remove-photo'){ const u2=me(); delete u2.photo; saveDB(db); toast('Foto de perfil removida.'); render(); return; }
-  if(a==='demo'){ db.currentUserId='u1'; saveDB(db); location.hash='#/dashboard'; render(); return; }
-  if(a==='visitor'){ db.currentUserId='u9'; saveDB(db); location.hash='#/dashboard'; render(); toast('Você entrou como visitante.'); return; }
+  if(a==='demo'){ db.currentUserId='u1'; saveDB(db); location.hash=takePendingRoute(); render(); return; }
+  if(a==='visitor'){ db.currentUserId='u9'; saveDB(db); location.hash=takePendingRoute(); render(); toast('Você entrou como visitante.'); return; }
   if(a==='back'){ history.back(); return; }
   if(a==='opp-detail'){ go('oportunidade',id); return; }
   if(a==='proj-detail'){ go('projeto',id); return; }
@@ -1199,8 +1300,10 @@ document.addEventListener('click',e=>{
   if(a==='step-next'){ if(!validateStep()) return; ui.createStep++; render(); return; }
   if(a==='publish'){ readCreateForm(); if(ui.create.title.length<6||ui.create.description.length<15){toast('Revise título e descrição.','error');return;} publishOpp(); return; }
   if(a==='join-proj'){ const p=db.projects.find(x=>x.id===id); if(p.participants.includes(u.id)){toast('Você já participa.');return;} p.participants.push(u.id); p.updates.push({date:new Date().toISOString().slice(0,10),text:`${u.name} entrou para o projeto.`}); notify(db,p.ownerId,'Novo participante',`${u.name} entrou em "${p.title}".`,{view:'projeto',id:p.id}); saveDB(db); toast('Bem-vindo(a) ao projeto!'); render(); return; }
-  if(a==='add-update'){ const p=db.projects.find(x=>x.id===id); const txt=prompt('Nova atualização:'); if(!txt) return; p.updates.push({date:new Date().toISOString().slice(0,10),text:txt}); const add=parseFloat(prompt('Horas confirmadas nesta etapa (0 para só atualizar):')||'0'); if(add>0){ p.contributedHours=Math.round((p.contributedHours+add)*10)/10; const {pct}=projectProgress(p); if(pct>=100) p.status='Concluído'; else if(pct>=70) p.status='Concluindo'; } saveDB(db); toast('Atualização registrada!'); render(); return; }
-  if(a==='add-skill'){ const s=$('#new-skill').value.trim(); if(!s) return; u.skills.push(s); saveDB(db); toast('Habilidade adicionada!'); render(); return; }
+  if(a==='add-update'){ const p=db.projects.find(x=>x.id===id); if(!p) return; openUpdateModal(p); return; }
+  if(a==='add-skill'){ const s=$('#new-skill').value.trim(); if(!s) return; u.skills=u.skills||[]; if(u.skills.some(x=>x.toLowerCase()===s.toLowerCase())){toast('Essa habilidade já está no perfil.','error');return;} u.skills.push(s); saveDB(db); toast('Habilidade adicionada!'); render(); return; }
+  if(a==='remove-skill'){ const i=parseInt(el.dataset.index,10); const u2=me(); if(!Number.isInteger(i)||!u2.skills||!u2.skills[i]) return; const removed=u2.skills.splice(i,1)[0]; saveDB(db); toast(`Habilidade "${removed}" removida.`); render(); return; }
+  if(a==='share-project'){ const p=db.projects.find(x=>x.id===id); if(!p) return; shareProject(p); return; }
   if(a==='read-note'){ db.notifications.find(n=>n.id===id).read=true; saveDB(db); render(); return; }
   if(a==='read-all'){ db.notifications.filter(n=>n.userId===u.id).forEach(n=>n.read=true); saveDB(db); toast('Todas marcadas como lidas.'); render(); return; }
   if(a==='open-note'){ const n=db.notifications.find(x=>x.id===id); n.read=true; saveDB(db); go(n.link.view,n.link.id); return; }
@@ -1211,8 +1314,27 @@ document.addEventListener('click',e=>{
   if(a==='criar-request'){ ui.create.type='request'; go('criar?type=request'); render(); return; }
   if(a==='show-code'){ go('codigo-seguranca',id); return; }
   if(a==='open-chat'){ go('chat',id); return; }
-  if(a==='start-chat-public'){ const act2=db.activities.find(x=>x.ownerId===db.currentUserId&&x.interestedId===id)||db.activities.find(x=>x.interestedId===db.currentUserId&&x.ownerId===id); if(act2){go('chat',act2.id);}else{toast('Não há atividade entre vocês para iniciar conversa.','error');} return; }
-  if(a==='chat-send'){ const input=$('#chat-msg'); const txt=input.value.trim(); if(!txt) return; const act3=db.activities.find(x=>x.id===id); if(!act3) return; let chat=db.chats?.find(c=>c.activityId===id); if(!chat){chat={id:uid('c'),activityId:id,messages:[]};db.chats.push(chat);} chat.messages.push({id:uid('m'),senderId:db.currentUserId,text:txt,date:new Date().toISOString()}); input.value=''; saveDB(db); renderChatMessage(id, chat.messages[chat.messages.length-1]); const w=document.getElementById('chat-window');if(w){w.scrollTop=w.scrollHeight;} return; }
+  if(a==='start-chat-public'){
+    if(u.id===id) return;
+    db.chats=db.chats||[];
+    const act2=db.activities.find(x=>x.ownerId===u.id&&x.interestedId===id)||db.activities.find(x=>x.interestedId===u.id&&x.ownerId===id);
+    if(act2){
+      let c=db.chats.find(x=>x.activityId===act2.id);
+      if(!c){c={id:uid('c'),activityId:act2.id,messages:[]};db.chats.push(c);saveDB(db);}
+      go('chat',act2.id); return;
+    }
+    let direct=db.chats.find(c=>Array.isArray(c.participants)&&c.participants.includes(u.id)&&c.participants.includes(id));
+    if(!direct){direct={id:uid('c'),activityId:null,participants:[u.id,id],messages:[],createdAt:new Date().toISOString()};db.chats.push(direct);saveDB(db);}
+    go('chat',direct.id);
+    return;
+  }
+  if(a==='chat-send'){ const input=$('#chat-msg'); const txt=input.value.trim(); if(!txt) return;
+    const act3=db.activities.find(x=>x.id===id);
+    let chat=act3?db.chats?.find(c=>c.activityId===id):db.chats?.find(c=>c.id===id);
+    if(!chat){chat={id:uid('c'),activityId:id,messages:[]};db.chats.push(chat);}
+    chat.messages.push({id:uid('m'),senderId:db.currentUserId,text:txt,date:new Date().toISOString()});
+    input.value=''; saveDB(db); renderChatMessage(chat.id, chat.messages[chat.messages.length-1]);
+    const w=document.getElementById('chat-window');if(w){w.scrollTop=w.scrollHeight;} return; }
   if(a==='validar-codigo'){ const act4=db.activities.find(x=>x.id===id); if(!act4) return; const sc=db.securityCodes?.find(s=>s.activityId===id); if(!sc){$('#sc-error').textContent='Nenhum código gerado.';return;} const digits=[1,2,3,4,5,6].map(i=>$(`#sc-digit-${i}`).value).join(''); if(!digits||digits.length<4){$('#sc-error').textContent='Informe pelo menos 4 dígitos.';return;} if(digits===sc.code&&!sc.used){sc.used=true; act4.codeUsed=true; const iAmOwner=act4.ownerId===db.currentUserId; act4[iAmOwner?'interestedConfirmed':'ownerConfirmed']=true; saveDB(db); toast('Código validado! Agora você pode confirmar as horas.'); render();} else {$('#sc-error').textContent='Código incorreto ou já utilizado.'; [1,2,3,4,5,6].forEach(i=>{const d=$(`#sc-digit-${i}`);d.classList.add('error');setTimeout(()=>d.classList.remove('error'),400);}); } return; }
   if(a==='gerar-codigo'){ const act5=db.activities.find(x=>x.id===id); if(!act5) return; const code=Math.floor(100000+Math.random()*900000).toString().slice(0,6); let sc=db.securityCodes?.find(s=>s.activityId===id); if(sc){sc.code=code;sc.used=false;}else{sc={id:uid('sc'),activityId:id,code,used:false,createdAt:new Date().toISOString()};db.securityCodes.push(sc);} act5.securityCode=code; saveDB(db); toast('Código gerado! Compartilhe com o outro participante.'); render(); return; }
   if(a==='demo-simular-interesse'){ const demoOpp=db.opportunities.find(o=>o.ownerId==='u1'&&o.status==='published'); if(!demoOpp){toast('Nenhuma oferta da conta demo para simular.','error');return;} const existing=db.activities.find(a=>a.oppId===demoOpp.id&&a.interestedId!=='u1'); if(existing){toast('Já há interesse nesta oferta.','error');return;} db.activities.push({id:uid('a'),oppId:demoOpp.id,ownerId:'u1',interestedId:'u2',status:'interesse',plannedHours:demoOpp.durationHours,confirmedHours:0,ownerConfirmed:false,interestedConfirmed:false,credited:false,createdAt:new Date().toISOString().slice(0,10),note:'Simulação: Carlos Mendes demonstrou interesse.',securityCode:'',codeUsed:false,ratedBy:{},chatOpened:false}); notify(db,'u1','Novo interesse (simulação)','Carlos Mendes demonstrou interesse em seu trabalho.',{view:'atividades'}); saveDB(db); toast('Simulação: Carlos Mendes demonstrou interesse!'); render(); return; }
@@ -1223,22 +1345,20 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-action="submit-rate"]'); if(!b) return;
   const act=db.activities.find(x=>x.id===b.dataset.id); if(!act) return;
   const starsEl=document.querySelectorAll('.rate button.on'); const stars = starsEl.length>0 ? +starsEl[starsEl.length-1].dataset.star : 3; const comment=$('#rate-comment')?.value.trim()||'';
+  const prev=act.ratedBy?.[db.currentUserId];
   if(!act.ratedBy) act.ratedBy={};
   act.ratedBy[db.currentUserId]={stars,comment,date:new Date().toISOString().slice(0,10)};
   const otherId=act.ownerId===db.currentUserId?act.interestedId:act.ownerId; const other=userById(otherId);
-  // Recalcular média do usuário avaliado com base em todas as avaliações recebidas
-  const allRatings = db.activities.filter(x=>x.ratedBy && x.ratedBy[otherId]).map(x=>x.ratedBy[otherId].stars);
-  if(allRatings.length>0){
-    const avg = allRatings.reduce((s,x)=>s+x,0)/allRatings.length;
-    other.ratingAvg=Math.round(avg*10)/10;
-    other.ratingsCount=allRatings.length;
-  } else {
-    other.ratingAvg=stars; other.ratingsCount=1;
-  }
+  addRatingToUser(other, stars, prev?Number(prev.stars):null);
   saveDB(db); toast('Avaliação enviada! Obrigado.'); render();
 });
 $('#modal-cancel').addEventListener('click',closeModal);
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+$('#update-cancel').addEventListener('click',closeUpdateModal);
+$('#update-hours').addEventListener('input',updatePreview);
+$('#update-save').addEventListener('click',saveProjectUpdate);
+$('#update-modal').addEventListener('click',e=>{ if(e.target.id==='update-modal') closeUpdateModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('#update-modal').classList.contains('open')) closeUpdateModal(); });
 window.addEventListener('hashchange',render);
 render();
 

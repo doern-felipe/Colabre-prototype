@@ -353,3 +353,19 @@ textarea{min-height:90px;resize:vertical}
 
 /* Cover emoji */
 .cover-emoji{font-size:48px}
+
+/* Remoção de habilidades */
+.skill-badge{padding-right:5px}
+.skill-remove{display:inline-grid;place-items:center;width:17px;height:17px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:14px;line-height:1;cursor:pointer;padding:0;margin-left:1px}
+.skill-remove:hover{background:#FEE2E2;color:#B91C1C}
+[data-theme="dark"] .skill-remove:hover{background:#7F1D1D;color:#FECACA}
+.skill-remove:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+
+/* Resumo de avaliações */
+.rating-summary{display:flex;flex-direction:column;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:12.5px;color:var(--muted)}
+.rating-summary strong{color:var(--ink)}
+.rating-summary .stars{color:var(--accent);letter-spacing:1px;font-size:13px}
+
+/* Modal de atualização do projeto */
+#update-modal .modal{max-width:560px}
+#update-modal textarea{min-height:110px}
