@@ -1,13 +1,65 @@
-/* Colabre — App (SPA demonstrativa, Vanilla JS)
-   Autenticação e persistência são apenas demonstrativas via localStorage. */
-import { loadDB, saveDB, resetDB, uid } from './storage.js';
+/* Colabre — App (SPA em Vanilla JS)
+   Dados oficiais vêm da API/servidor. O navegador guarda apenas tema e preferências. */
+import { api, errorMessage } from './api.js';
 import { $, $$, esc, fmtDate, fmtCredits, fmtHoursDesc, toast, confirmModal, closeModal } from './modules/utils.js';
-import { getBalance, getStats, addTransaction, settleActivity } from './modules/credits.js';
+import { getBalance, getStats } from './modules/credits.js';
 import { filterOpportunities } from './modules/opportunities.js';
 import { projectProgress, filterProjects } from './modules/projects.js';
-import { notify, unreadCount } from './modules/notifications.js';
+import { demoView, demoAction } from './demo.js?v=3';
 
-let db = loadDB();
+const VISITOR_USER = {
+  id: 'u9', name: 'Visitante', firstName: 'Visitante', email: '', color: '#64748B',
+  bio: 'Você está explorando o Colabre como visitante. Entre para participar.',
+  location: 'Modo visitante', availability: '', skills: [], hoursShared: 0,
+  activitiesCompleted: 0, peopleHelped: 0, ratingAvg: 0, ratingsCount: 0,
+  joinedAt: '', level: 'Iniciante', levelIndex: 0, isVisitor: true,
+};
+const EMPTY_DB = {
+  users: [], opportunities: [], projects: [], activities: [], transactions: [],
+  notifications: [], chats: [], connections: [], ratings: [], me: null,
+  currentUserId: VISITOR_USER.id, invite: null, serverNow: new Date().toISOString(),
+};
+let db = { ...EMPTY_DB };
+let serverOffset = 0;
+let refreshing = false;
+
+function applyState(payload) {
+  const st = payload && payload.state ? payload.state : EMPTY_DB;
+  const meUser = st.me || null;
+  const users = Array.isArray(st.users) ? [...st.users] : [];
+  if (meUser && !users.some(u => u.id === meUser.id)) users.push(meUser);
+  if (!meUser) users.push(VISITOR_USER);
+  db = {
+    ...EMPTY_DB, ...st,
+    users: users.map(u => (meUser && u.id === meUser.id ? { ...u, ...meUser } : u)),
+    me: meUser,
+    currentUserId: meUser ? meUser.id : VISITOR_USER.id,
+  };
+  serverOffset = new Date(payload.serverNow || Date.now()).getTime() - Date.now();
+}
+
+async function loadState() {
+  const payload = await api.state();
+  applyState(payload);
+  return payload;
+}
+
+async function refresh({ silent = false } = {}) {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    await loadState();
+    render();
+  } catch (err) {
+    if (!silent) toast(errorMessage(err), 'error');
+  } finally {
+    refreshing = false;
+  }
+}
+
+function nowServer() { return Date.now() + serverOffset; }
+function newId(prefix = 'id') { return prefix + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4); }
+function unread(dbArg = db) { return (dbArg.notifications || []).filter(n => !n.read).length; }
 const savedTheme = localStorage.getItem('colabre_theme');
 if(savedTheme){ document.documentElement.setAttribute('data-theme', savedTheme); }
 function toggleTheme(){ const isDark = document.documentElement.getAttribute('data-theme')==='dark'; document.documentElement.setAttribute('data-theme', isDark?'light':'dark'); localStorage.setItem('colabre_theme', isDark?'light':'dark'); }
@@ -68,8 +120,9 @@ function projectCover(p){
 
 const ui = { explore:{q:'',type:'todas',category:'todas',modality:'todas',duration:'todas',sort:'recentes'}, proj:{q:'',category:'todas',status:'todas',location:'todas',onlyNeeds:false}, activityTab:'todas', createStep:1, create:{type:'offer',title:'',description:'',category:'Educação',modality:'online',durationHours:1,availability:'',location:''}, createProj:{}, editMode:false, evalFor:null };
 
-function me(){ return db.users.find(u=>u.id===db.currentUserId); }
-function isVisitor(){ return db.currentUserId==='u9'; }
+function me(){ return db.users.find(u=>u.id===db.currentUserId) || VISITOR_USER; }
+function isVisitor(){ return !db.me; }
+function isLogged(){ return Boolean(db.me); }
 function visitorLock(title, active){
   return layout(`
   <div class="page-head"><h1>${title}</h1><p>Esta ação não está disponível no modo visitante.</p></div>
@@ -77,7 +130,7 @@ function visitorLock(title, active){
 }
 function projectUrl(id){ return location.href.split('#')[0] + '#/projeto/' + encodeURIComponent(id); }
 const PENDING_KEY='colabre_pending_route';
-function rememberPendingRoute(){ const h=location.hash; if(/^#\/(projeto|oportunidade|perfil-publico)\//.test(h)){ try{ sessionStorage.setItem(PENDING_KEY,h); }catch(_){} } }
+function rememberPendingRoute(){ const h=location.hash; if(/^#\//.test(h) && !h.startsWith('#/login')){ try{ sessionStorage.setItem(PENDING_KEY,h); }catch(_){} } }
 function takePendingRoute(fallback='#/dashboard'){ let h=null; try{ h=sessionStorage.getItem(PENDING_KEY); if(h) sessionStorage.removeItem(PENDING_KEY); }catch(_){} return h||fallback; }
 async function copyText(text){
   try{ if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); return true; } }catch(_){}
@@ -127,12 +180,21 @@ function readAndResizeImage(file, max=480, quality=0.85){
   });
 }
 function avatarName(u, clickable=false, id='', avatarCls=''){ const click = clickable && id ? ` data-action="goto-perfil-publico" data-id="${id}" style="cursor:pointer"` : ''; return `<div class="userrow"${click}>${avatar(u, avatarCls)}<div><strong>${esc(u.name)}</strong><div class="kv">${esc(u.location||'')}</div></div></div>`; }
-function logout(){ db.currentUserId=null; saveDB(db); location.hash='#/login'; render(); }
+async function logout(){
+  stopSse();
+  try { await api.logout(); } catch (_) {}
+  try { sessionStorage.removeItem('colabre_visitor'); } catch (_) {}
+  db = { ...EMPTY_DB };
+  await loadState().catch(() => {});
+  location.hash = '#/login';
+  render();
+  toast('Você saiu da sua conta.');
+}
 function go(view, id){ location.hash = id ? `#/${view}/${id}` : `#/${view}`; }
 function parseRoute(){ const h = location.hash.replace('#/',''); const [path, query] = h.split('?'); const [v, id] = path.split('/'); const params = new URLSearchParams(query||''); return { view: v||'login', id, query: params }; }
 
 function layout(inner, active){
-  const u = me(); const un = unreadCount(db, u.id);
+  const u = me(); const un = unread(db);
   const links = [['dashboard','🏠','Início'],['explorar','🔍','Explorar'],['atividades','🗓️','Minhas atividades'],['projetos','🌱','Projetos'],['carteira','⏰','Carteira']];
   return `
   <div class="app">
@@ -165,7 +227,107 @@ function layout(inner, active){
 }
 
 /* ---------- Auth ---------- */
+const authState = { mode: 'login', email: '', devCode: '', notice: '', error: '', ref: '' };
+function inviteRef(){
+  try {
+    const q = new URLSearchParams(location.search);
+    const h = new URLSearchParams((location.hash.split('?')[1] || ''));
+    return String(q.get('ref') || h.get('ref') || '').trim().toUpperCase();
+  } catch (_) { return ''; }
+}
+function enterVisitor(){
+  try { sessionStorage.setItem('colabre_visitor', '1'); } catch (_) {}
+  location.hash = takePendingRoute('#/explorar');
+  if (!db.me) { db.users = [...db.users.filter(u => u.id !== VISITOR_USER.id), VISITOR_USER]; db.currentUserId = VISITOR_USER.id; }
+  render();
+  toast('Você entrou como visitante. Crie uma conta para participar.');
+}
+async function afterAuth(){
+  await loadState();
+  startSse();
+  const target = takePendingRoute();
+  if (location.hash === target) { render(); } else { location.hash = target; }
+}
 function renderAuth(){
+  const ref = authState.ref || inviteRef();
+  authState.ref = ref;
+  const mode = authState.mode;
+  const notice = authState.notice ? `<p class="kv" style="color:var(--green,#15803d);background:#ecfdf5;padding:8px 10px;border-radius:8px">${esc(authState.notice)}</p>` : '';
+  const dev = authState.devCode ? `<p class="kv" style="background:#fff7ed;padding:8px 10px;border-radius:8px;word-break:break-word">Ambiente de desenvolvimento — código: <strong style="letter-spacing:3px">${esc(authState.devCode)}</strong>. Em produção ele é enviado apenas por e-mail.</p>` : '';
+  const tabs = [['login', 'Entrar'], ['signup', 'Criar conta']];
+  let panel = '';
+
+  if (mode === 'login') {
+    panel = `
+      <h2 style="margin:10px 0 4px">Entrar na plataforma</h2>
+      <p class="text-muted small">Acesse com o e-mail e a senha da sua conta.</p>
+      ${notice}
+      <form id="login-form" novalidate>
+        <div class="field"><label for="login-email">E-mail</label><input id="login-email" class="input" type="email" autocomplete="email" placeholder="voce@exemplo.com" required></div>
+        <div class="field"><label for="login-pass">Senha</label><input id="login-pass" class="input" type="password" autocomplete="current-password" placeholder="Sua senha" required></div>
+        <p class="error" id="auth-error">${esc(authState.error)}</p>
+        <button class="btn btn-accent btn-block" type="submit">Entrar</button>
+      </form>
+      <div class="inline" style="margin-top:10px;justify-content:space-between">
+        <button class="btn btn-ghost btn-sm" type="button" data-auth="forgot">Esqueci minha senha</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-action="visitor">Continuar como visitante</button>
+      </div>`;
+  } else if (mode === 'signup') {
+    panel = `
+      <h2 style="margin:10px 0 4px">Criar conta</h2>
+      <p class="text-muted small">Depois do cadastro enviaremos um código de 6 dígitos para confirmar seu e-mail.</p>
+      ${notice}
+      <form id="signup-form" novalidate>
+        <div class="field"><label for="su-name">Nome completo</label><input id="su-name" class="input" type="text" autocomplete="name" placeholder="Seu nome" required></div>
+        <div class="field"><label for="su-email">E-mail</label><input id="su-email" class="input" type="email" autocomplete="email" placeholder="voce@exemplo.com" required></div>
+        <div class="field"><label for="su-pass">Senha</label><input id="su-pass" class="input" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres, letras e números" required></div>
+        <div class="field"><label for="su-confirm">Confirmar senha</label><input id="su-confirm" class="input" type="password" autocomplete="new-password" placeholder="Repita a senha" required></div>
+        ${ref ? `<p class="kv">Convite de <strong>${esc(ref)}</strong> aplicado ao seu cadastro.</p>` : ''}
+        <p class="error" id="auth-error">${esc(authState.error)}</p>
+        <button class="btn btn-accent btn-block" type="submit">Criar conta</button>
+      </form>`;
+  } else if (mode === 'verify') {
+    panel = `
+      <h2 style="margin:10px 0 4px">Confirme seu e-mail</h2>
+      <p class="text-muted small">Enviaremos (ou já enviamos) um código de 6 dígitos para <strong>${esc(authState.email)}</strong>. Ele expira em 15 minutos e só pode ser usado uma vez.</p>
+      ${dev}
+      <form id="verify-form" novalidate>
+        <div class="field"><label for="vf-code">Código de confirmação</label><input id="vf-code" class="input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required></div>
+        <p class="error" id="auth-error">${esc(authState.error)}</p>
+        <button class="btn btn-accent btn-block" type="submit">Confirmar e entrar</button>
+      </form>
+      <div class="inline" style="margin-top:10px;justify-content:space-between">
+        <button class="btn btn-ghost btn-sm" type="button" data-auth="resend">Reenviar código</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-auth="login">Voltar ao login</button>
+      </div>`;
+  } else if (mode === 'forgot') {
+    panel = `
+      <h2 style="margin:10px 0 4px">Recuperar senha</h2>
+      <p class="text-muted small">Informe seu e-mail. Se a conta existir, enviaremos um código de redefinição.</p>
+      <form id="forgot-form" novalidate>
+        <div class="field"><label for="fg-email">E-mail</label><input id="fg-email" class="input" type="email" autocomplete="email" placeholder="voce@exemplo.com" required></div>
+        <p class="error" id="auth-error">${esc(authState.error)}</p>
+        <button class="btn btn-accent btn-block" type="submit">Enviar código</button>
+      </form>
+      <button class="btn btn-ghost btn-sm" type="button" data-auth="login" style="margin-top:10px">Voltar ao login</button>`;
+  } else if (mode === 'reset') {
+    panel = `
+      <h2 style="margin:10px 0 4px">Definir nova senha</h2>
+      <p class="text-muted small">Informe o código recebido para <strong>${esc(authState.email)}</strong> e escolha uma nova senha.</p>
+      ${dev}
+      <form id="reset-form" novalidate>
+        <div class="field"><label for="rs-code">Código de 6 dígitos</label><input id="rs-code" class="input" inputmode="numeric" maxlength="6" placeholder="000000" required></div>
+        <div class="field"><label for="rs-pass">Nova senha</label><input id="rs-pass" class="input" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres, letras e números" required></div>
+        <div class="field"><label for="rs-confirm">Confirmar nova senha</label><input id="rs-confirm" class="input" type="password" autocomplete="new-password" placeholder="Repita a senha" required></div>
+        <p class="error" id="auth-error">${esc(authState.error)}</p>
+        <button class="btn btn-accent btn-block" type="submit">Redefinir senha</button>
+      </form>
+      <div class="inline" style="margin-top:10px;justify-content:space-between">
+        <button class="btn btn-ghost btn-sm" type="button" data-auth="forgot">Reenviar código</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-auth="login">Voltar ao login</button>
+      </div>`;
+  }
+
   $('#root').innerHTML = `
   <div class="auth">
     <section class="auth-hero auth-hero-top">
@@ -181,56 +343,115 @@ function renderAuth(){
         </div>
         <div class="hero-illu">🤝 Troque tempo por tempo com confiança e vizinhança.</div>
       </div>
-      <div class="small" style="color:#B9C9BD;margin-top:20px">Protótipo acadêmico demonstrativo · Dados salvos apenas no navegador (localStorage).</div>
+      <div class="small" style="color:#B9C9BD;margin-top:20px">Plataforma com contas reais, verificação de e-mail e dados sincronizados entre dispositivos.</div>
     </section>
     <section class="auth-panel">
       <div class="auth-card">
         <div class="logo">Colabre</div>
-        <h2 style="margin:10px 0 4px">Entrar na plataforma</h2>
-        <p class="text-muted small">Use a conta demo ou crie uma conta para explorar.</p>
-        <form id="login-form" novalidate>
-          <div class="field"><label for="login-email">E-mail</label><input id="login-email" type="email" placeholder="demo@colabre.com" required></div>
-          <div class="field"><label for="login-pass">Senha</label><input id="login-pass" type="password" placeholder="Qualquer senha (demo)" required></div>
-          <p class="error" id="login-error"></p>
-          <button class="btn btn-accent btn-block" type="submit">Entrar</button>
-        </form>
-        <div class="inline" style="margin-top:10px;justify-content:center">
-          <button class="btn btn-primary" data-action="demo">Acessar demonstração</button>
-          <button class="btn btn-outline" data-action="visitor">Continuar como visitante</button>
+        ${['login','signup'].includes(mode) ? `<div class="tabs" style="margin:10px 0 6px">${tabs.map(([k,l])=>`<button class="tab ${mode===k?'active':''}" type="button" data-auth="${k}">${l}</button>`).join('')}</div>` : ''}
+        ${panel}
+        <div class="inline" style="margin-top:14px;justify-content:center">
+          <button class="btn btn-outline btn-sm" data-action="demo">Acessar demonstração</button>
         </div>
-        <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
-        <h3>Criar conta (demo)</h3>
-        <form id="signup-form" novalidate>
-          <div class="field"><label for="su-name">Nome completo</label><input id="su-name" type="text" placeholder="Seu nome" required></div>
-          <div class="field"><label for="su-email">E-mail</label><input id="su-email" type="email" placeholder="voce@exemplo.com" required></div>
-          <div class="field"><label for="su-pass">Senha</label><input id="su-pass" type="password" placeholder="Crie uma senha" required></div>
-          <p class="error" id="su-error"></p>
-          <button class="btn btn-outline btn-block" type="submit">Criar conta</button>
-        </form>
-        <p class="lang-note" style="margin-top:12px">Demo: <strong>demo@colabre.com</strong> / qualquer senha · Visitante entra como Marina Santos.</p>
+        <p class="lang-note" style="margin-top:12px">Suas senhas são protegidas com hash no servidor. Nenhum dado sensível fica no navegador.</p>
       </div>
     </section>
   </div>`;
-  $('#login-form').addEventListener('submit', e=>{
+
+  const setError = msg => { const el = $('#auth-error'); if (el) el.textContent = msg || ''; };
+  $$('[data-auth]').forEach(btn => btn.addEventListener('click', () => {
+    const to = btn.dataset.auth;
+    authState.mode = to; authState.error = ''; authState.notice = ''; authState.devCode = '';
+    if (to === 'forgot' && authState.email) setTimeout(() => { const f = $('#fg-email'); if (f) f.value = authState.email; }, 0);
+    renderAuth();
+  }));
+
+  $('#login-form')?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = $('#login-email').value.trim().toLowerCase();
-    const pass = $('#login-pass').value;
-    const found = db.users.find(u=>u.email.toLowerCase()===email);
-    if(!email || !pass){ $('#login-error').textContent='Preencha e-mail e senha.'; return; }
-    if(!found){ $('#login-error').textContent='Conta não encontrada. Crie uma conta ou use a demonstração.'; return; }
-    db.currentUserId = found.id; saveDB(db); location.hash=takePendingRoute(); render();
+    const password = $('#login-pass').value;
+    if (!email || !password) { setError('Preencha e-mail e senha.'); return; }
+    const btn = e.submitter || e.target.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      await api.login({ email, password });
+      await afterAuth();
+    } catch (err) {
+      if (err.status === 403 && err.data?.needsVerification) {
+        authState.mode = 'verify'; authState.email = err.data.email || email; authState.error = '';
+        renderAuth(); toast('Confirme seu e-mail para entrar.');
+      } else setError(errorMessage(err));
+    } finally { if (btn) btn.disabled = false; }
   });
-  $('#signup-form').addEventListener('submit', e=>{
+
+  $('#signup-form')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const name = $('#su-name').value.trim(); const email = $('#su-email').value.trim().toLowerCase(); const pass = $('#su-pass').value;
-    if(name.length<3){ $('#su-error').textContent='Informe seu nome completo.'; return; }
-    if(!email.includes('@')){ $('#su-error').textContent='E-mail inválido.'; return; }
-    if(pass.length<4){ $('#su-error').textContent='A senha precisa de ao menos 4 caracteres.'; return; }
-    if(db.users.some(u=>u.email.toLowerCase()===email)){ $('#su-error').textContent='Este e-mail já está cadastrado.'; return; }
-    const colors=['#3D5145','#CC5500','#4F8062','#2F5D6C','#9C4A6B','#8A6D3B'];
-    const nu = {id:uid('u'), name, firstName:name.split(' ')[0], email, password:pass, color:colors[db.users.length%colors.length], bio:'Novo participante do Colabre.', location:'Minha comunidade', skills:[], hoursShared:0, activitiesCompleted:0, peopleHelped:0, ratingAvg:0, ratingsCount:0, joinedAt:new Date().toISOString().slice(0,10), availability:'A combinar', level:'Iniciante'};
-    db.users.push(nu); addTransaction(db, nu.id, 2, 'Crédito de boas-vindas'); db.currentUserId=nu.id; saveDB(db); location.hash=takePendingRoute(); render();
-    setTimeout(()=>toast('Conta criada! Você recebeu 2 créditos de boas-vindas.'),100);
+    const name = $('#su-name').value.trim();
+    const email = $('#su-email').value.trim().toLowerCase();
+    const password = $('#su-pass').value;
+    const confirm = $('#su-confirm').value;
+    if (name.length < 3) { setError('Informe seu nome completo.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setError('Informe um e-mail válido.'); return; }
+    if (password.length < 8) { setError('A senha precisa ter pelo menos 8 caracteres.'); return; }
+    if (password !== confirm) { setError('As senhas não conferem.'); return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await api.register({ name, email, password, confirm, ref: authState.ref || inviteRef() });
+      authState.mode = 'verify'; authState.email = email; authState.devCode = res.devCode || ''; authState.notice = res.message || ''; authState.error = '';
+      renderAuth();
+      toast('Conta criada. Confirme o código enviado.');
+    } catch (err) { setError(errorMessage(err)); }
+    finally { if (btn) btn.disabled = false; }
+  });
+
+  $('#verify-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const code = $('#vf-code').value.replace(/\D/g, '');
+    if (code.length !== 6) { setError('Informe o código de 6 dígitos.'); return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      await api.verify({ email: authState.email, code });
+      authState.devCode = '';
+      await afterAuth();
+      toast('E-mail confirmado. Bem-vindo(a)!');
+    } catch (err) { setError(errorMessage(err)); }
+    finally { if (btn) btn.disabled = false; }
+  });
+
+  $('#forgot-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#fg-email').value.trim().toLowerCase();
+    if (!email) { setError('Informe seu e-mail.'); return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await api.forgot({ email });
+      authState.email = email; authState.mode = 'reset'; authState.devCode = res.devCode || ''; authState.notice = res.message || ''; authState.error = '';
+      renderAuth();
+      toast('Se a conta existir, o código foi gerado.');
+    } catch (err) { setError(errorMessage(err)); }
+    finally { if (btn) btn.disabled = false; }
+  });
+
+  $('#reset-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const code = $('#rs-code').value.replace(/\D/g, '');
+    const password = $('#rs-pass').value;
+    const confirm = $('#rs-confirm').value;
+    if (code.length !== 6) { setError('Informe o código de 6 dígitos.'); return; }
+    if (password.length < 8) { setError('A senha precisa ter pelo menos 8 caracteres.'); return; }
+    if (password !== confirm) { setError('As senhas não conferem.'); return; }
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      await api.reset({ email: authState.email, code, password, confirm });
+      authState.mode = 'login'; authState.notice = 'Senha redefinida. Entre com a nova senha.'; authState.devCode = ''; authState.error = '';
+      renderAuth();
+      toast('Senha redefinida.');
+    } catch (err) { setError(errorMessage(err)); }
+    finally { if (btn) btn.disabled = false; }
   });
 }
 
@@ -409,69 +630,72 @@ function validateStep(){
 function publishOpp(){
   if(isVisitor()){ toast('Modo visitante: você não pode publicar oportunidades.','error'); return; }
   const c=ui.create;
-  const o={id:uid('o'),ownerId:db.currentUserId,type:c.type,title:c.title,description:c.description,category:c.category,modality:c.modality,durationHours:c.durationHours,availability:c.availability||'A combinar',location:c.location||(c.modality==='online'?'Online':'A combinar'),publishedAt:new Date().toISOString().slice(0,10),status:'published'};
-  db.opportunities.unshift(o); saveDB(db);
-  ui.create={type:'offer',title:'',description:'',category:'Educação',modality:'online',durationHours:1,availability:'',location:''}; ui.createStep=1;
-  toast('Oportunidade publicada com sucesso!'); go('oportunidade',o.id);
+  if(!c.title || c.title.length<6 || !c.description || c.description.length<15){ toast('Revise título e descrição.','error'); return; }
+  api.post('/api/opportunities', {
+    type:c.type, title:c.title, description:c.description, category:c.category,
+    modality:c.modality, durationHours:c.durationHours,
+    availability:c.availability||'A combinar',
+    location:c.location||(c.modality==='online'?'Online':'A combinar'),
+  }).then(async res => {
+    ui.create={type:'offer',title:'',description:'',category:'Educação',modality:'online',durationHours:1,availability:'',location:''}; ui.createStep=1;
+    toast('Oportunidade publicada com sucesso!');
+    await loadState();
+    go('oportunidade',res.id);
+    render();
+  }).catch(err => toast(errorMessage(err),'error'));
 }
 
 /* ---------- Minhas atividades ---------- */
-const STATUS_LABEL={interesse:'Aguardando resposta',confirmada:'Confirmada',realizada:'Em andamento',concluida:'Concluída',cancelada:'Cancelada',publicada:'Publicada'};
-function activityCard(a){
-  const opp=db.opportunities.find(o=>o.id===a.oppId)||{title:'(oportunidade removida)',type:'offer'};
-  const otherId = a.ownerId===db.currentUserId ? a.interestedId : a.ownerId; const other=userById(otherId);
-  const iAmOwner = a.ownerId===db.currentUserId;
-  const mine = iAmOwner || a.interestedId===db.currentUserId;
-  const sc = db.securityCodes?.find(s=>s.activityId===a.id);
-  const chat = db.chats?.find(c=>c.activityId===a.id);
-  let actions='';
-  if(a.status==='interesse' && iAmOwner) actions=`<button class="btn btn-accent btn-sm" data-action="accept" data-id="${a.id}">Aceitar e confirmar</button> <button class="btn btn-outline btn-sm" data-action="cancel-act" data-id="${a.id}">Recusar</button>`;
-  if(a.status==='confirmada' && mine) actions+=`<button class="btn btn-primary btn-sm" data-action="mark-done" data-id="${a.id}">Marcar como realizada</button>`;
-  if(a.status==='realizada' && mine && !a[ iAmOwner?'ownerConfirmed':'interestedConfirmed']) actions+=`<button class="btn btn-accent btn-sm" data-action="confirm-hours" data-id="${a.id}">Confirmar horas (${fmtHoursDesc(a.plannedHours)})</button>`;
-  if(a.status==='concluida' && mine && !a.ratedBy?.[db.currentUserId]) actions+=`<button class="btn btn-outline btn-sm" data-action="rate" data-id="${a.id}">Avaliar experiência</button>`;
-  if(['interesse','confirmada'].includes(a.status) && mine) actions+=`<button class="btn btn-outline btn-sm" data-action="cancel-act" data-id="${a.id}">Cancelar</button>`;
-  // Código de segurança e chat após aceite
-  if(a.status!=='interesse' && a.status!=='cancelada' && mine){
-    if(sc && !sc.used && a.status!=='concluida'){
-      actions+=`<button class="btn btn-code btn-sm" data-action="show-code" data-id="${a.id}">🔐 Código de segurança</button>`;
-    }
-    if(chat){
-      actions+=`<button class="btn btn-chat btn-sm" data-action="open-chat" data-id="${a.id}">💬 Conversar</button>`;
-    }
-  }
-  let feedback='';
-  if(a.status==='concluida'){
-    const mineR=a.ratedBy?.[db.currentUserId], theirsR=a.ratedBy?.[otherId];
-    const stars=n=>'★'.repeat(n)+'☆'.repeat(Math.max(0,5-n));
-    feedback=`<div class="rating-summary"><span><strong>Sua avaliação:</strong> ${mineR?`<span class="stars">${stars(mineR.stars)}</span> <span class="kv">${fmtDate(mineR.date)}</span>`:'pendente'}</span><span><strong>Avaliação de ${esc(other.name)}:</strong> ${theirsR?`<span class="stars">${stars(theirsR.stars)}</span> <span class="kv">${fmtDate(theirsR.date)}</span>`:'pendente'}</span></div>`;
-  }  return `<article class="opp-card">
-    <div class="inline"><span class="badge ${opp.type==='offer'?'badge-offer':'badge-request'}">${opp.type==='offer'?'Oferta':'Solicitação'}</span><span class="badge badge-status">${STATUS_LABEL[a.status]||a.status}</span><span class="badge badge-cat">${a.credited?'Créditos movimentados':'Créditos pendentes'}</span></div>
-    <h3>${esc(opp.title)}</h3>
-    ${avatarName(other, other.id!==db.currentUserId, other.id)}<div class="kv">${iAmOwner?'Você publicou · ':'Você demonstrou interesse · '} ${fmtDate(a.createdAt)}</div>
-    <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(a.plannedHours)}</span><span class="meta">${fmtCredits(a.plannedHours)} créditos</span><span class="meta">Confirmações: ${a.ownerConfirmed?'✓ dono':'—'} ${a.interestedConfirmed?'✓ interesse':'—'}</span></div>
-    ${a.note?`<p class="small text-muted">${esc(a.note)}</p>`:''}
-    ${feedback}
-    <div class="inline">${actions}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" data-action="opp-detail" data-id="${opp.id||''}">Detalhes</button></div>
-    ${ui.evalFor===a.id?ratingForm(a.id):''}
-  </article>`;
+const STATUS_LABEL={
+  interesse:'Aguardando aceite', aceita:'Aceita — aguardando início', em_andamento:'Em andamento',
+  finalizada:'Finalizada — aguardando confirmação', concluida:'Concluída', contestada:'Horas contestadas',
+  cancelada:'Cancelada', publicada:'Publicada',
+};
+function rolesOf(a){
+  const opp=db.opportunities.find(o=>o.id===a.oppId);
+  const type=opp?.type||'offer';
+  return {
+    provider: type==='offer' ? a.ownerId : a.interestedId,
+    requester: type==='offer' ? a.interestedId : a.ownerId,
+    type,
+  };
+}
+function hoursFromStarted(startedAt){
+  const ms=Math.max(0, nowServer()-new Date(startedAt).getTime());
+  return Math.max(0.25, Math.round((ms/60000)/15)/4);
+}
+function clockText(startedAt){
+  const ms=Math.max(0, nowServer()-new Date(startedAt).getTime());
+  const total=Math.floor(ms/1000);
+  const h=String(Math.floor(total/3600)).padStart(2,'0');
+  const m=String(Math.floor((total%3600)/60)).padStart(2,'0');
+  const s=String(total%60).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+function startTimerTicker(){
+  if(window.__colabreTimer) clearInterval(window.__colabreTimer);
+  if(!document.querySelector('[data-timer]')) return;
+  window.__colabreTimer=setInterval(()=>{
+    $$('[data-timer]').forEach(el=>{
+      const started=el.dataset.timer;
+      if(!started) return;
+      const clock=el.querySelector('[data-clock]');
+      const credits=el.querySelector('[data-credit]');
+      if(clock) clock.textContent=clockText(started);
+      if(credits) credits.textContent=fmtCredits(hoursFromStarted(started));
+    });
+  },1000);
 }
 function ratingForm(aid){
   const a=db.activities.find(x=>x.id===aid); const alreadyRated = a?.ratedBy?.[db.currentUserId]; const myStars=alreadyRated?(Number(alreadyRated.stars)||0):0;
-  const otherId = a.ownerId===db.currentUserId ? a.interestedId : a.ownerId; const other=userById(otherId);
+  if(!a) return '';
+  const {requester,provider}=rolesOf(a);
+  const otherId = db.currentUserId===provider ? requester : provider;
+  const other=userById(otherId);
   return `<div class="review" style="margin-top:10px"><h3>Avalie a experiência</h3><p class="small text-muted">Sua avaliação para ${esc(other.name)} (1 a 5 estrelas)</p>
   <div class="rate" id="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-star="${n}" class="${n<=myStars?'on':''}" aria-label="${n} estrelas">${n<=myStars?'★':'☆'}</button>`).join('')}</div>
   <div class="field"><label>Comentário (opcional)</label><textarea id="rate-comment" placeholder="Como foi a comunicação e a colaboração?"></textarea></div>
   ${alreadyRated?'<p class="kv small">Você já avaliou esta atividade.</p>':'<button class="btn btn-primary btn-sm" data-action="submit-rate" data-id="'+aid+'">Enviar avaliação</button>'}</div>`;
-}
-function addRatingToUser(user, stars, replaceStars=null){
-  if(!user) return;
-  let count=Math.max(0, Number(user.ratingsCount)||0);
-  let sum=(Number(user.ratingAvg)||0)*count;
-  if(replaceStars!=null && count>0){ sum-=Number(replaceStars)||0; } else { count+=1; }
-  sum+=Number(stars)||0;
-  if(count<1) count=1;
-  user.ratingsCount=count;
-  user.ratingAvg=Math.round((sum/count)*10)/10;
 }
 function myActivities(){
   const uid2=db.currentUserId;
@@ -479,16 +703,79 @@ function myActivities(){
   const myOpps=db.opportunities.filter(o=>o.ownerId===uid2).map(o=>({id:'opp_'+o.id, oppId:o.id, ownerId:uid2, interestedId:'', status:'publicada', plannedHours:o.durationHours, createdAt:o.publishedAt, note:o.description, published:true}));
   return {acts:mine, opps:myOpps};
 }
+function activityCard(a){
+  const opp=db.opportunities.find(o=>o.id===a.oppId)||{title:'(oportunidade removida)',type:'offer'};
+  const {provider,requester,type}=rolesOf(a);
+  const iAmProvider=a.ownerId===db.currentUserId && type==='offer';
+  const iAmRequester=a.ownerId===db.currentUserId && type==='request';
+  const iAmInterested=a.interestedId===db.currentUserId;
+  const mine=a.ownerId===db.currentUserId||a.interestedId===db.currentUserId;
+  const myRole=db.currentUserId===provider?'provider':db.currentUserId===requester?'requester':'';
+  const otherId = db.currentUserId===provider ? requester : provider;
+  const other=userById(otherId);
+  const chat=db.chats?.find(c=>c.activityId===a.id);
+  let actions='';
+
+  if(a.status==='interesse' && a.ownerId===db.currentUserId){
+    actions=`<button class="btn btn-accent btn-sm" data-action="accept" data-id="${a.id}">Aceitar interesse</button> <button class="btn btn-outline btn-sm" data-action="reject-act" data-id="${a.id}">Recusar</button>`;
+  }
+  if(a.status==='aceita'){
+    if(myRole==='requester') actions+=`<button class="btn btn-code btn-sm" data-action="start-code" data-id="${a.id}">🔐 Ver código de início</button>`;
+    if(myRole==='provider') actions+=`<button class="btn btn-accent btn-sm" data-action="start-code" data-id="${a.id}">▶ Iniciar com código</button>`;
+    actions+=`<button class="btn btn-outline btn-sm" data-action="cancel-act" data-id="${a.id}">Cancelar</button>`;
+  }
+  if(a.status==='em_andamento' && myRole==='provider'){
+    actions+=`<button class="btn btn-accent btn-sm" data-action="finish-act" data-id="${a.id}">Finalizar atividade</button>`;
+  }
+  if(a.status==='finalizada' && myRole==='requester'){
+    actions+=`<button class="btn btn-accent btn-sm" data-action="confirm-hours" data-id="${a.id}">Confirmar ${fmtHoursDesc(a.confirmedHours||a.plannedHours)}</button>`;
+    actions+=`<button class="btn btn-outline btn-sm" data-action="contest-hours" data-id="${a.id}">Contestar tempo</button>`;
+  }
+  if(a.status==='contestada' && myRole==='provider'){
+    actions+=`<button class="btn btn-accent btn-sm" data-action="resolve-contest" data-id="${a.id}">Aceitar ${fmtHoursDesc(a.proposedHours)}</button>`;
+    actions+=`<button class="btn btn-outline btn-sm" data-action="refuse-contest" data-id="${a.id}">Recusar proposta</button>`;
+  }
+  if(a.status==='concluida' && mine && !a.ratedBy?.[db.currentUserId]) actions+=`<button class="btn btn-outline btn-sm" data-action="rate" data-id="${a.id}">Avaliar experiência</button>`;
+  if(a.status!=='cancelada' && mine){
+    actions+=`<button class="btn btn-chat btn-sm" data-action="open-chat" data-id="${a.id}">💬 Conversar</button>`;
+  }
+
+  let live='';
+  if(a.status==='em_andamento' && a.startedAt){
+    live=`<div class="memory-strip" data-timer="${esc(a.startedAt)}" style="margin-top:8px;align-items:center"><strong>⏱ <span data-clock>${clockText(a.startedAt)}</span></strong><span class="kv">tempo oficial do servidor · <span data-credit>${fmtCredits(hoursFromStarted(a.startedAt))}</span> crédito(s) até agora</span></div>`;
+  }
+  let contest='';
+  if(a.status==='contestada'){
+    contest=`<p class="small text-muted">Contestação: ${esc(a.contestReason||'sem motivo informado')} · tempo proposto: <strong>${fmtHoursDesc(a.proposedHours)}</strong>.</p>`;
+  }
+  let feedback='';
+  if(a.status==='concluida'){
+    const mineR=a.ratedBy?.[db.currentUserId], theirsR=a.ratedBy?.[otherId];
+    const stars=n=>'★'.repeat(n)+'☆'.repeat(Math.max(0,5-n));
+    feedback=`<div class="rating-summary"><span><strong>Sua avaliação:</strong> ${mineR?`<span class="stars">${stars(mineR.stars)}</span> <span class="kv">${fmtDate(mineR.date)}</span>`:'pendente'}</span><span><strong>Avaliação de ${esc(other.name)}:</strong> ${theirsR?`<span class="stars">${stars(theirsR.stars)}</span> <span class="kv">${fmtDate(theirsR.date)}</span>`:'pendente'}</span></div>`;
+  }  return `<article class="opp-card">
+    <div class="inline"><span class="badge ${type==='offer'?'badge-offer':'badge-request'}">${type==='offer'?'Oferta':'Solicitação'}</span><span class="badge badge-status">${STATUS_LABEL[a.status]||a.status}</span><span class="badge badge-cat">${a.credited?'Créditos movimentados':'Créditos pendentes'}</span></div>
+    <h3>${esc(opp.title)}</h3>
+    ${avatarName(other, other.id!==db.currentUserId, other.id)}<div class="kv">${a.ownerId===db.currentUserId?'Você publicou · ':'Você demonstrou interesse · '} ${fmtDate(a.createdAt)}</div>
+    <div class="opp-meta"><span class="meta">⏱ ${fmtHoursDesc(a.confirmedHours||a.plannedHours)}</span><span class="meta">${fmtCredits(a.confirmedHours||a.plannedHours)} créditos</span>${a.startedAt?`<span class="meta">Início ${new Date(a.startedAt).toLocaleString('pt-BR')}</span>`:''}</div>
+    ${live}
+    ${contest}
+    ${a.note?`<p class="small text-muted">${esc(a.note)}</p>`:''}
+    ${feedback}
+    <div class="inline">${actions}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" data-action="opp-detail" data-id="${opp.id||''}">Detalhes</button></div>
+    ${ui.evalFor===a.id?ratingForm(a.id):''}
+  </article>`;
+}
 function renderActivities(){
-  const {acts,opps}=myActivities(); const tab=ui.activityTab;
+  const {acts,opps}=myActivities(); const tab=ui.activityTab; const uid2=db.currentUserId;
   let list=acts;
-  if(tab==='offer') list=acts.filter(a=>{const o=db.opportunities.find(x=>x.id===a.oppId);return o&&o.type==='offer'&&a.ownerId===db.currentUserId;});
-  if(tab==='request') list=acts.filter(a=>{const o=db.opportunities.find(x=>x.id===a.oppId);return o&&o.type==='request'&&a.ownerId===db.currentUserId;});
-  if(tab==='andamento') list=acts.filter(a=>['interesse','confirmada','realizada'].includes(a.status));
+  if(tab==='offer') list=acts.filter(a=>{const o=db.opportunities.find(x=>x.id===a.oppId);return o&&o.type==='offer'&&a.ownerId===uid2;});
+  if(tab==='request') list=acts.filter(a=>{const o=db.opportunities.find(x=>x.id===a.oppId);return o&&o.type==='request'&&a.ownerId===uid2;});
+  if(tab==='andamento') list=acts.filter(a=>['interesse','aceita','em_andamento','finalizada','contestada'].includes(a.status));
   if(tab==='concluidas') list=acts.filter(a=>a.status==='concluida');
   const tabs=[['todas','Todas'],['offer','Oferecendo ajuda'],['request','Solicitando ajuda'],['andamento','Em andamento'],['concluidas','Concluídas']];
   return layout(`
-  <div class="page-head"><h1>Minhas atividades</h1><p>Acompanhe ofertas, solicitações e trocas confirmadas.</p></div>
+  <div class="page-head"><h1>Minhas atividades</h1><p>Acompanhe interesses, códigos de início, cronômetros e confirmações.</p></div>
   <div class="tabs">${tabs.map(([k,l])=>`<button class="tab ${tab===k?'active':''}" data-action="tab" data-tab="${k}">${l}</button>`).join('')}</div>
   ${tab==='todas'&&opps.length?`<h2 style="margin-bottom:10px">Suas publicações</h2><div class="grid2" style="margin-bottom:18px">${opps.map(o=>{const opp=db.opportunities.find(x=>x.id===o.oppId);return oppCard(opp);}).join('')}</div>`:''}
   ${list.length?`<h2 style="margin-bottom:10px">Trocas e participações (${list.length})</h2><div class="grid2">${list.map(activityCard).join('')}</div>`:
@@ -647,6 +934,10 @@ function levelIndex(u){ const i=LEVELS.indexOf(u.level||'Iniciante'); return i>=
 function renderProfile(){
   const u=me(); const li=levelIndex(u);
   const myProjs=db.projects.filter(p=>p.participants.includes(u.id));
+  const conns=db.connections||[];
+  const accepted=conns.filter(c=>c.status==='aceito');
+  const received=conns.filter(c=>c.status==='pendente'&&c.addresseeId===u.id);
+  const sent=conns.filter(c=>c.status==='pendente'&&c.requesterId===u.id);
   return layout(`
   <div class="page-head"><h1>Meu perfil</h1><p>Sua identidade e trajetória de colaboração.</p></div>
   <div class="two-col">
@@ -681,20 +972,42 @@ function renderProfile(){
       <div class="toolbar"><input id="new-skill" class="input" placeholder="Nova habilidade" aria-label="Nova habilidade"><button class="btn btn-outline btn-sm" data-action="add-skill">Adicionar</button></div></div>
       <div class="card"><h3>Níveis de participação</h3><p class="kv">O nível considera atividades concluídas, consistência e avaliações — não apenas o saldo. Níveis altos não autorizam automaticamente atividades sensíveis.</p><div class="levels">${LEVELS.map((l,i)=>`<span class="level-chip ${i===li?'cur':''}">${i+1}. ${l}${i===li?' ✓':''}</span>`).join('')}</div></div>
       <div class="card"><h3>Projetos participantes (${myProjs.length})</h3><div class="stack">${myProjs.map(p=>`<div class="inline"><strong>${esc(p.title)}</strong><span class="kv">${fmtCredits(p.contributedHours)}/${fmtCredits(p.goalHours)}h</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="proj-detail" data-id="${p.id}">Ver</button></div>`).join('')||'<span class="kv">Você ainda não participa de projetos.</span>'}</div></div>
+      <div class="card"><h3>Seu nível: ${esc(u.level||'Iniciante')}</h3>
+        <div class="progress" role="progressbar" aria-valuenow="${u.levelProgress||0}" aria-valuemin="0" aria-valuemax="100"><div style="width:${u.levelProgress||0}%"></div></div>
+        <div class="kv">${u.nextLevel?`${fmtCredits(u.pointsToNext)} pontos para ${esc(u.nextLevel)}`:'Nível máximo alcançado'} · pontuação ${fmtCredits(u.levelScore||0)}</div>
+        <p class="kv" style="margin-top:6px">Atividades concluídas (10 pts), horas contribuídas (2 pts), avaliações recebidas (2 pts), pessoas ajudadas (1 pt) e projetos (5 pts). Calculado automaticamente pelo servidor.</p>
+      </div>
+      <div class="card"><h3>Convites</h3>
+        <p class="small text-muted">Compartilhe seu link pessoal. O vínculo é confirmado após a pessoa verificar o e-mail.</p>
+        <div class="inline" style="flex-wrap:nowrap"><input id="invite-url" class="input" style="flex:1;min-width:0" readonly value="${esc((location.origin||'') + '/register?ref=' + (db.invite?.code||u.inviteCode||''))}" aria-label="Seu link de convite"><button class="btn btn-outline btn-sm" data-action="copy-invite">Copiar</button><button class="btn btn-outline btn-sm" data-action="share-invite">Compartilhar</button></div>
+        <div class="opp-meta" style="margin-top:8px"><span class="meta">👥 ${db.invite?.sent||0} convites enviados</span><span class="meta">✅ ${db.invite?.confirmed||0} cadastros confirmados</span><span class="meta">Código ${esc(db.invite?.code||u.inviteCode||'')}</span></div>
+        <p class="kv">Convites não geram créditos automáticos.</p>
+      </div>
+      <div class="card"><h3>Conexões (${accepted.length})</h3>
+        ${received.length?`<h4 style="margin:6px 0">Solicitações recebidas</h4><div class="stack">${received.map(c=>{const other=userById(c.requesterId);return `<div class="inline">${avatar(other)}<div style="flex:1"><strong>${esc(other.name)}</strong><div class="kv">quer se conectar</div></div><button class="btn btn-accent btn-sm" data-action="conn-accept" data-id="${c.id}">Aceitar</button><button class="btn btn-outline btn-sm" data-action="conn-decline" data-id="${c.id}">Recusar</button></div>`;}).join('')}</div>`:''}
+        ${sent.length?`<h4 style="margin:10px 0 6px">Solicitações enviadas</h4><div class="stack">${sent.map(c=>{const other=userById(c.addresseeId);return `<div class="inline">${avatar(other)}<div style="flex:1"><strong>${esc(other.name)}</strong><div class="kv">aguardando resposta</div></div><button class="btn btn-outline btn-sm" data-action="conn-cancel" data-id="${c.id}">Cancelar</button></div>`;}).join('')}</div>`:''}
+        <h4 style="margin:10px 0 6px">Suas conexões</h4>
+        <div class="stack">${accepted.map(c=>{const other=userById(c.requesterId===u.id?c.addresseeId:c.requesterId);return `<div class="inline">${avatar(other)}<div style="flex:1"><strong>${esc(other.name)}</strong><div class="kv">${esc(other.location||'')}</div></div><button class="btn btn-outline btn-sm" data-action="goto-perfil-publico" data-id="${other.id}">Ver perfil</button><button class="btn btn-ghost btn-sm" data-action="conn-remove" data-id="${c.id}">Remover</button></div>`;}).join('')||'<span class="kv">Nenhuma conexão ainda.</span>'}</div>
+      </div>
     </div>
     <div class="card">
-      <h3>${ui.editMode?'Editar perfil':'Editar perfil'}</h3>
+      <h3>Editar perfil</h3>
       <form id="profile-form">
         <div class="field"><label>Nome de exibição</label><input id="pf-name" class="input" value="${esc(u.name)}"></div>
         <div class="field"><label>Localidade aproximada (sem endereço)</label><input id="pf-loc" class="input" value="${esc(u.location)}"></div>
         <div class="field"><label>Biografia</label><textarea id="pf-bio">${esc(u.bio)}</textarea></div>
         <div class="field"><label>Disponibilidade</label><input id="pf-avail" class="input" value="${esc(u.availability||'')}"></div>
-        <button class="btn btn-accent btn-block" type="submit">Salvar alterações</button>
+        <div class="field"><label>Privacidade do perfil</label><select id="pf-privacy">
+          <option value="publico" ${u.privacy==='publico'?'selected':''}>Público — qualquer pessoa vê detalhes</option>
+          <option value="conexoes" ${u.privacy==='conexoes'?'selected':''}>Somente conexões veem detalhes</option>
+          <option value="privado" ${u.privacy==='privado'?'selected':''}>Privado — apenas informações básicas</option>
+        </select></div>
+        <label class="inline small" style="gap:8px"><input type="checkbox" id="pf-show-activity" ${u.showActivity!==false?'checked':''}> Mostrar atividades no perfil</label>
+        <button class="btn btn-accent btn-block" type="submit" style="margin-top:10px">Salvar alterações</button>
       </form>
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
-      <h3 style="margin:12px 0 8px">Configurações</h3>
-      <div class="inline"><button class="btn btn-outline" data-action="reset">Restaurar dados demonstrativos iniciais</button></div>
-      <div class="inline" style="margin-top:8px"><button class="btn btn-outline btn-block" data-action="logout">Sair da conta</button></div>
+      <div class="inline"><button class="btn btn-outline btn-block" data-action="logout">Sair da conta</button></div>
+      <p class="kv" style="margin-top:8px">Conta: ${esc(db.me?.email||'')} · e-mail verificado ✓</p>
     </div>
   </div>
   `,'perfil');
@@ -733,15 +1046,26 @@ function renderPublicProfile(id){
         <div class="public-profile-stats">
           <div class="public-profile-stat"><strong>${fmtCredits(u.hoursShared||0)}h</strong><span>Horas contribuídas</span></div>
           <div class="public-profile-stat"><strong>${u.activitiesCompleted||0}</strong><span>Trabalhos concluídos</span></div>
-          <div class="public-profile-stat"><strong>${fmtCredits(getBalance(db,u.id))}</strong><span>Créditos disponíveis</span></div>
+          <div class="public-profile-stat"><strong>${u.ratingsCount||0}</strong><span>Avaliações recebidas</span></div>
           <div class="public-profile-stat"><strong>${u.ratingAvg?u.ratingAvg.toFixed(1):'—'} ★</strong><span>Avaliação média (${u.ratingsCount||0})</span></div>
         </div>
         <div class="public-profile-actions">
-          <button class="btn btn-primary btn-sm" data-action="start-chat-public" data-id="${u.id}">💬 Iniciar conversa</button>
+          ${isVisitor()?'<button class="btn btn-outline btn-sm" data-action="visitor">Entre para conectar</button>':`
+            ${u.connectionStatus==='aceito'?'<span class="badge badge-status">✓ Conectados</span>':''}
+            ${u.connectionStatus==='enviado'?'<button class="btn btn-outline btn-sm" data-action="conn-cancel" data-id="'+u.connectionId+'">Cancelar solicitação</button>':''}
+            ${u.connectionStatus==='recebido'?`<button class="btn btn-accent btn-sm" data-action="conn-accept" data-id="${u.connectionId}">Aceitar conexão</button><button class="btn btn-outline btn-sm" data-action="conn-decline" data-id="${u.connectionId}">Recusar</button>`:''}
+            ${!u.connectionStatus?`<button class="btn btn-primary btn-sm" data-action="conn-send" data-id="${u.id}">＋ Adicionar conexão</button>`:''}
+            ${u.connectionStatus==='aceito'?`<button class="btn btn-ghost btn-sm" data-action="conn-remove" data-id="${u.connectionId}">Remover conexão</button>`:''}
+            <button class="btn btn-primary btn-sm" data-action="start-chat-public" data-id="${u.id}">💬 Iniciar conversa</button>
+          `}
+          <button class="btn btn-outline btn-sm" data-action="invite-person" data-id="${u.id}">Convidar para o Colabre</button>
         </div>
       </div>
       <div class="card"><h3>Projetos participantes (${myProjs.length})</h3><div class="stack">${myProjs.map(p=>`<div class="inline"><strong>${esc(p.title)}</strong><span class="kv">${fmtCredits(p.contributedHours)}/${fmtCredits(p.goalHours)}h</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="proj-detail" data-id="${p.id}">Ver</button></div>`).join('')||'<span class="kv">Não participa de projetos.</span>'}</div></div>
       <div class="card"><h3>Atividades concluídas (${myActs.length})</h3><div class="stack">${myActs.map(a=>{const opp=db.opportunities.find(o=>o.id===a.oppId);return `<div class="inline"><strong>${esc(opp?.title||'(removido)')}</strong><span class="kv badge badge-status">Concluída</span></div>`;}).join('')||'<span class="kv">Nenhuma atividade concluída.</span>'}</div></div>
+      <div class="card"><h3>Avaliações recebidas (${u.ratingsCount||0})</h3>
+        <div class="stack">${(db.ratings||[]).filter(r=>r.toId===u.id).map(r=>{const author=userById(r.fromId);const stars='★'.repeat(r.stars)+'☆'.repeat(Math.max(0,5-r.stars));return `<div class="review"><div class="inline">${avatar(author)}<div style="flex:1"><strong>${esc(author.name)}</strong><div class="kv">${fmtDate(r.date)}</div></div><span class="stars">${stars}</span></div>${r.comment?`<p class="small" style="margin:8px 0 0">${esc(r.comment)}</p>`:''}</div>`;}).join('')||'<span class="kv">Nenhuma avaliação recebida ainda.</span>'}</div>
+      </div>
     </div>
   </div>
   `,'perfil');
@@ -757,9 +1081,13 @@ function renderChat(id){
   let chat=null, other=null, chatTitle='';
   if(act){
     const opp=db.opportunities.find(o=>o.id===act.oppId)||{title:''};
-    const otherId = act.ownerId===db.currentUserId ? act.interestedId : act.ownerId; other=userById(otherId);
+    const {provider,requester}=rolesOf(act);
+    const otherId = db.currentUserId===provider ? requester : provider; other=userById(otherId);
     chat=db.chats?.find(c=>c.activityId===id);
-    if(!chat){ chat={id:uid('c'),activityId:id,messages:[]}; db.chats.push(chat); saveDB(db); }
+    if(!chat){
+      api.post('/api/chats',{activityId:id}).then(async()=>{ await loadState(); render(); }).catch(err=>toast(errorMessage(err),'error'));
+      return layout(`<button class="btn btn-ghost" data-action="back">← Voltar</button><div class="card empty"><div class="big">💬</div><h3>Abrindo conversa…</h3></div>`,'chat');
+    }
     chatTitle='Conversa sobre '+esc(opp.title);
   } else {
     chat=db.chats?.find(c=>c.id===id && Array.isArray(c.participants));
@@ -799,45 +1127,56 @@ function renderChatMessage(chatId, message){
   if(w){ w.appendChild(el); w.scrollTop=w.scrollHeight; }
 }
 
-function renderDemoMode(){
-  const isDemo = db.currentUserId==='u1';
-  return layout(`
-  <div class="demo-banner"><span>🤖</span><b>Modo demonstração:</b> interações abaixo são simuladas com um usuário fictício para mostrar o fluxo completo da plataforma.</div>
-  <div class="page-head"><h1>Modo demonstração</h1><p>Simule o ciclo completo de um trabalho: interesse → aceitação → negociação → código de segurança → conclusão → avaliação.</p></div>
-  <div class="grid3">
-    <div class="card"><h3>1. Criar trabalho</h3><p class="small text-muted">Publique uma oferta ou solicitação para iniciar o fluxo de demonstração.</p><a class="btn btn-accent btn-block" href="#/criar">Criar oportunidade</a></div>
-    <div class="card"><h3>2. Simular interesse de outro usuário</h3><p class="small text-muted">Um usuário fictício demonstra interesse em uma de suas publicações.</p><button class="btn btn-outline btn-block" data-action="demo-simular-interesse" ${!isDemo?'disabled title="Entre como conta demo (Marina)"':''}>Simular interesse</button></div>
-    <div class="card"><h3>3. Simular fluxo completo</h3><p class="small text-muted">Aceite, gere código, converse, conclua e avalie automaticamente.</p><button class="btn btn-secondary btn-block" data-action="demo-fluxo-completo" ${!isDemo?'disabled title="Entre como conta demo (Marina)"':''}>Simular fluxo</button></div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <h3>Atividades recentes para demonstração</h3>
-    <div class="grid2">${db.activities.filter(a=>a.ownerId===db.currentUserId||a.interestedId===db.currentUserId).map(a=>{const opp=db.opportunities.find(o=>o.id===a.oppId);return `<div class="inline"><strong>${esc(opp?.title||'—')}</strong><span class="kv badge badge-status">${STATUS_LABEL[a.status]||a.status}</span><span style="flex:1"></span><button class="btn btn-outline btn-sm" data-action="opp-detail" data-id="${a.oppId||''}">Ver</button></div>`;}).join('')||'<span class="kv">Nenhuma atividade.</span>'}</div>
-  </div>
-  `,'demo');
-}
-
-/* ---------- Código de segurança ---------- */
+/* ---------- Código de início ---------- */
 function renderSecurityCode(id){
   const act=db.activities.find(x=>x.id===id); if(!act) return go('atividades');
   const opp=db.opportunities.find(o=>o.id===act.oppId)||{title:''};
-  const sc=db.securityCodes?.find(s=>s.activityId===id);
+  const {provider,requester}=rolesOf(act);
+  const isRequester=db.currentUserId===requester;
+  const otherId=isRequester?provider:requester;
+  const who=userById(otherId);
+  if(act.status!=='aceita') return layout(`<button class="btn btn-ghost" data-action="back">← Voltar</button><div class="card empty"><div class="big">🔐</div><h3>Código indisponível</h3><p>O código só fica disponível enquanto a atividade aguarda início.</p><a class="btn btn-outline" href="#/atividades">Ver minhas atividades</a></div>`,'atividades');
+  const body = isRequester ? `
+      <p class="text-muted small">Mostre este código para <strong>${esc(who.name)}</strong> ao iniciar a atividade. Ele é de uso único.</p>
+      <div id="code-display" class="security-code" style="display:flex;gap:10px;justify-content:center;font-size:40px;font-weight:800;letter-spacing:8px;margin:18px 0">••••</div>
+      <div id="code-error" class="error" style="text-align:center"></div>
+      <p class="kv" style="text-align:center">Somente você, que solicitou a ajuda, pode ver este código. Não o envie por canais públicos.</p>` : `
+      <p class="text-muted small">Peça o código de 4 dígitos para <strong>${esc(who.name)}</strong> e informe abaixo para iniciar oficialmente o cronômetro.</p>
+      <div class="security-code" id="security-code-digits" style="display:flex;gap:10px;justify-content:center;margin:18px 0">
+        ${[1,2,3,4].map(i=>`<input type="text" class="security-digit" id="sc-digit-${i}" maxlength="1" inputmode="numeric" placeholder="0" aria-label="Dígito ${i}">`).join('')}
+      </div>
+      <div id="sc-error" class="error" style="text-align:center"></div>
+      <button class="btn btn-accent btn-block" data-action="validar-codigo" data-id="${id}">Validar código e iniciar</button>`;
+
+  setTimeout(()=>{
+    if(!isRequester){
+      const digits=$$('#security-code-digits .security-digit');
+      digits.forEach((inp,idx)=>inp.addEventListener('input',()=>{
+        inp.value=inp.value.replace(/\D/g,'').slice(0,1);
+        if(inp.value && digits[idx+1]) digits[idx+1].focus();
+      }));
+      if(digits[0]) digits[0].focus();
+      return;
+    }
+    api.get(`/api/activities/${id}/code`).then(res=>{
+      const el=document.getElementById('code-display');
+      if(el) el.textContent=res.code;
+    }).catch(err=>{
+      const el=document.getElementById('code-error');
+      if(el) el.textContent=errorMessage(err);
+    });
+  },0);
+
   return layout(`
   <button class="btn btn-ghost" data-action="back">← Voltar</button>
-  <div class="page-head"><h1>Código de segurança</h1><p>Informe o código de 4 a 6 dígitos para confirmar a realização de <strong>${esc(opp.title)}</strong>.</p></div>
-  <div class="card security-modal">
-    <div class="kv">Atividade: <strong>${esc(opp.title)}</strong></div>
-    <div class="kv">Participante: <strong>${esc(userById(act.ownerId===db.currentUserId?act.interestedId:act.ownerId).name)}</strong></div>
-    ${!sc?`<p class="text-muted small">Nenhum código gerado ainda para esta atividade.</p>`:''}
-    <div class="security-code" id="security-code-digits">
-      ${[1,2,3,4,5,6].map(i=>`<input type="text" class="security-digit" id="sc-digit-${i}" maxlength="1" placeholder="0">`).join('')}
-    </div>
-    <div id="sc-error" class="error" style="text-align:center"></div>
-    <div class="inline" style="margin-top:16px">
-      <button class="btn btn-accent btn-block" data-action="validar-codigo" data-id="${id}">Validar código</button>
-      <button class="btn btn-outline btn-block" data-action="gerar-codigo" data-id="${id}">Gerar novo código</button>
-    </div>
-  </div>
-  `,'codigo-seguranca');
+  <div class="page-head"><h1>${isRequester?'Código de início':'Iniciar atividade'}</h1><p>${esc(opp.title)}</p></div>
+  <div class="card security-modal">${body}</div>
+  `,'atividades');
+}
+
+/* ---------- Demonstração ---------- */
+function renderDemoMode(){
+  return layout(demoView(),'demo');
 }
 
 /* ---------- Config ---------- */
@@ -853,20 +1192,85 @@ function renderConfig(){
 }
 
 /* ---------- Router ---------- */
-function render(){
+const PUBLIC_VIEWS = new Set(['login','registro','verificar','redefinir','recuperar','explorar','projetos','projeto','oportunidade','perfil-publico','demo']);
+const VISITOR_LOCKED = {
+  atividades:['Minhas atividades','atividades'],
+  carteira:['Carteira','carteira'],
+  perfil:['Perfil','perfil'],
+  notificacoes:['Notificações','notificacoes'],
+  chat:['Conversas','atividades'],
+  'codigo-seguranca':['Código de início','atividades'],
+  'criar-projeto':['Criar projeto','projetos'],
+  criar:['Criar oportunidade','criar'],
+};
+let sseStarted = false;
+let sseSource = null;
+function startSse(){
+  if(sseStarted || !db.me) return;
+  if(!('EventSource' in window)) return;
+  sseStarted = true;
+  try {
+     const es = new EventSource((window.COLABRE_API_BASE || '').replace(/\/$/, '') + '/api/events', { withCredentials: true });
+    sseSource = es;
+    es.onmessage = ev => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if(msg.type !== 'update' || !db.me) return;
+        if(parseRoute().view==='demo') return;
+        const el = document.activeElement;
+        if(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+        refresh({ silent: true });
+      } catch (_) {}
+    };
+    es.onerror = () => {
+      try { es.close(); } catch (_) {}
+      sseStarted = false; sseSource = null;
+    };
+  } catch (_) {}
+}
+function stopSse(){
+  if(sseSource){ try { sseSource.close(); } catch (_) {} }
+  sseSource = null; sseStarted = false;
+}
+function render(opts){
   const {view,id}=parseRoute();
-  if(view==='login'||!db.currentUserId){ if(db.currentUserId) go('dashboard'); else { rememberPendingRoute(); renderAuth(); return; } }
-  window.scrollTo(0,0);
+  if(!opts || opts.scroll !== false) window.scrollTo(0,0);
+  if(['login','registro','verificar','redefinir','recuperar'].includes(view)){
+    if(db.me){ go('dashboard'); return; }
+    if(view==='registro') authState.mode='signup';
+    else if(view==='verificar') authState.mode='verify';
+    else if(view==='redefinir') authState.mode='reset';
+    else if(view==='recuperar') authState.mode='forgot';
+    renderAuth(); return;
+  }
+  if(!db.me){
+    let visitorFlag=false; try{ visitorFlag=sessionStorage.getItem('colabre_visitor')==='1'; }catch(_){}
+    if(view==='demo' && !visitorFlag){ try{ sessionStorage.setItem('colabre_visitor','1'); }catch(_){} visitorFlag=true; }
+    if(view==='dashboard'){
+      if(!visitorFlag){ rememberPendingRoute(); renderAuth(); return; }
+    } else if(!PUBLIC_VIEWS.has(view)){
+      if(visitorFlag){
+        const locked=VISITOR_LOCKED[view];
+        const title=locked?locked[0]:'Conta necessária';
+        const active=locked?locked[1]:'perfil';
+        $('#root').innerHTML=visitorLock(title,active);
+        startTimerTicker();
+        return;
+      }
+      rememberPendingRoute(); renderAuth(); return;
+    }
+  }
   const map={dashboard:renderDashboard,explorar:renderExplore,criar:renderCreate,atividades:renderActivities,projetos:renderProjects,'criar-projeto':renderCreateProject,carteira:renderWallet,perfil:renderProfile,notificacoes:renderNotifications};
-  if(view==='oportunidade'){$('#root').innerHTML=renderOppDetail(id);return;}
-  if(view==='projeto'){$('#root').innerHTML=renderProjectDetail(id);return;}
-  if(view==='perfil-publico'){$('#root').innerHTML=renderPublicProfile(id);return;}
-  if(view==='chat'){$('#root').innerHTML=renderChat(id);return;}
-  if(view==='codigo-seguranca'){$('#root').innerHTML=renderSecurityCode(id);return;}
-  if(view==='demo'){$('#root').innerHTML=renderDemoMode();return;}
+  if(view==='oportunidade'){$('#root').innerHTML=renderOppDetail(id);startTimerTicker();return;}
+  if(view==='projeto'){$('#root').innerHTML=renderProjectDetail(id);startTimerTicker();return;}
+  if(view==='perfil-publico'){$('#root').innerHTML=renderPublicProfile(id);startTimerTicker();return;}
+  if(view==='chat'){$('#root').innerHTML=renderChat(id);startTimerTicker();return;}
+  if(view==='codigo-seguranca'){$('#root').innerHTML=renderSecurityCode(id);startTimerTicker();return;}
+  if(view==='demo'){$('#root').innerHTML=renderDemoMode();startTimerTicker();return;}
   const fn=map[view]||renderDashboard;
   $('#root').innerHTML=fn();
   bindView(view);
+  startTimerTicker();
 }
 function bindView(view){
   if(view==='explorar'){
@@ -923,20 +1327,41 @@ function bindView(view){
       syncCover();
     }));
 
-    $('#proj-form').addEventListener('submit',e=>{
+    $('#proj-form').addEventListener('submit',async e=>{
       e.preventDefault();
       if(isVisitor()){ toast('Modo visitante: você não pode criar projetos.','error'); return; }
       const title=$('#pj-title').value.trim(), desc=$('#pj-desc').value.trim(), obj=$('#pj-obj').value.trim(), loc=$('#pj-loc').value.trim();
       if(title.length<5||desc.length<15||obj.length<10){$('#pj-error').textContent='Preencha nome, descrição (15+) e objetivo (10+).';return;}
       const chosen = PROJ_COLORS[coverState.color] || PROJ_COLORS[0];
-      const p={id:uid('p'),ownerId:db.currentUserId,title,description:desc,objective:obj,category:$('#pj-cat').value,location:loc,startDate:$('#pj-date').value||new Date().toISOString().slice(0,10),createdAt:new Date().toISOString().slice(0,10),goalHours:parseFloat($('#pj-goal').value)||40,contributedHours:0,expectedParticipants:parseInt($('#pj-part').value)||10,skillsNeeded:$('#pj-skills').value.split(',').map(s=>s.trim()).filter(Boolean),needs:[{title:'Organização',hours:10},{title:'Divulgação',hours:5}],participants:[db.currentUserId],status:'Ativo',visibility:$('#pj-vis').value,updates:[{date:new Date().toISOString().slice(0,10),text:'Projeto criado e aberto à comunidade.'}],emoji:coverState.emoji,colorLight:chosen.light,colorDark:chosen.dark};
-      db.projects.unshift(p); saveDB(db); toast('Projeto criado com sucesso!'); go('projeto',p.id);
+      const btn=e.target.querySelector('button[type="submit"]'); if(btn) btn.disabled=true;
+      try{
+        const res=await api.post('/api/projects',{
+          title, description:desc, objective:obj, category:$('#pj-cat').value, location:loc,
+          startDate:$('#pj-date').value||new Date().toISOString().slice(0,10),
+          goalHours:parseFloat($('#pj-goal').value)||40,
+          expectedParticipants:parseInt($('#pj-part').value)||10,
+          needs:[{title:'Organização',hours:10},{title:'Divulgação',hours:5}],
+          visibility:$('#pj-vis').value, emoji:coverState.emoji, colorLight:chosen.light, colorDark:chosen.dark,
+        });
+        await loadState();
+        toast('Projeto criado com sucesso!'); go('projeto',res.id); render();
+      }catch(err){ $('#pj-error').textContent=errorMessage(err); }
+      finally{ if(btn) btn.disabled=false; }
     });
   }
   if(view==='perfil'){
-    $('#profile-form').addEventListener('submit',e=>{
-      e.preventDefault(); const u=me();
-      u.name=$('#pf-name').value.trim()||u.name; u.firstName=u.name.split(' ')[0]; u.location=$('#pf-loc').value.trim(); u.bio=$('#pf-bio').value.trim(); u.availability=$('#pf-avail').value.trim(); saveDB(db); toast('Perfil atualizado!'); render();
+    $('#profile-form').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const btn=e.target.querySelector('button[type="submit"]'); if(btn) btn.disabled=true;
+      try{
+        await api.patch('/api/profile',{
+          name:$('#pf-name').value.trim(), location:$('#pf-loc').value.trim(), bio:$('#pf-bio').value.trim(),
+          availability:$('#pf-avail').value.trim(), privacy:$('#pf-privacy').value,
+          showActivity:Boolean($('#pf-show-activity').checked),
+        });
+        await loadState(); toast('Perfil atualizado!'); render();
+      }catch(err){ toast(errorMessage(err),'error'); }
+      finally{ if(btn) btn.disabled=false; }
     });
     $('#pf-photo').addEventListener('change',async e=>{
       const file=e.target.files&&e.target.files[0];
@@ -947,7 +1372,8 @@ function bindView(view){
       if(file.size>12*1024*1024){ err.textContent='A imagem deve ter no máximo 12 MB.'; e.target.value=''; return; }
       try{
         const photo=await readAndResizeImage(file);
-        const u=me(); u.photo=photo; saveDB(db);
+        await api.post('/api/profile/photo',{photo});
+        await loadState();
         toast('Foto de perfil atualizada!'); render();
       }catch(ex){
         err.textContent=ex.message||'Não foi possível carregar esta imagem. Tente outra.';
@@ -983,113 +1409,275 @@ function saveProjectUpdate(){
   const add=parseFloat($('#update-hours').value)||0;
   if(text.length<5){ $('#update-error').textContent='Escreva pelo menos 5 caracteres para registrar a atualização.'; $('#update-text').focus(); return; }
   if(add<0 || !isFinite(add)){ $('#update-error').textContent='Informe uma quantidade de horas válida.'; return; }
-  p.updates.push({date:new Date().toISOString().slice(0,10),text});
-  if(add>0){
-    p.contributedHours=Math.round((p.contributedHours+add)*10)/10;
-    const {pct}=projectProgress(p);
-    if(pct>=100) p.status='Concluído'; else if(pct>=70) p.status='Concluindo';
-  }
-  saveDB(db); closeUpdateModal(); toast('Atualização registrada!'); render();
+  const id=p.id;
+  api.post(`/api/projects/${encodeURIComponent(id)}/updates`,{text,hours:add}).then(async()=>{
+    await loadState(); closeUpdateModal(); toast('Atualização registrada!'); render();
+  }).catch(err=>{ $('#update-error').textContent=errorMessage(err); });
 }
 /* ---------- Ações globais ---------- */
-document.addEventListener('click',e=>{
-  const el=e.target.closest('[data-action]'); if(!el) return;
-  const a=el.dataset.action, id=el.dataset.id;
-  const u=me();
-  const visitorBlocked=['interest','accept','join-proj','publish','mark-done','confirm-hours','cancel-act','add-update'];
-  if(isVisitor() && visitorBlocked.includes(a)){ toast('Modo visitante: crie uma conta para criar ou aceitar ajuda.','error'); return; }
-  if(a==='notif'){ go('notificacoes'); return; }
-  if(a==='theme'){ toggleTheme(); render(); return; }
-  if(a==='goto-dashboard'){ go('dashboard'); return; }
-  if(a==='goto-perfil'){ go('perfil'); return; }
-  if(a==='logout'){ logout(); return; }
-  if(a==='remove-photo'){ const u2=me(); delete u2.photo; saveDB(db); toast('Foto de perfil removida.'); render(); return; }
-  if(a==='demo'){ db.currentUserId='u1'; saveDB(db); location.hash=takePendingRoute(); render(); return; }
-  if(a==='visitor'){ db.currentUserId='u9'; saveDB(db); location.hash=takePendingRoute(); render(); toast('Você entrou como visitante.'); return; }
-  if(a==='back'){ history.back(); return; }
-  if(a==='opp-detail'){ go('oportunidade',id); return; }
-  if(a==='proj-detail'){ go('projeto',id); return; }
-  if(a==='clear-filters'){ ui.explore={q:'',type:'todas',category:'todas',modality:'todas',duration:'todas',sort:'recentes'}; render(); return; }
-  if(a==='interest'){
-    const opp=db.opportunities.find(o=>o.id===id); if(!opp) return;
-    const owner=userById(opp.ownerId);
-    confirmModal({title:'Confirmar interesse',message:`Você demonstra interesse em "${opp.title}"? A atividade só será confirmada após o aceite de ${owner.name}.`,confirmLabel:'Confirmar interesse',onConfirm:()=>{
-      db.activities.push({id:uid('a'),oppId:id,ownerId:opp.ownerId,interestedId:u.id,status:'interesse',plannedHours:opp.durationHours,confirmedHours:0,ownerConfirmed:false,interestedConfirmed:false,credited:false,createdAt:new Date().toISOString().slice(0,10),note:'Interesse demonstrado.'});
-      notify(db,opp.ownerId,'Novo interesse',`${u.name} demonstrou interesse em "${opp.title}".`,{view:'atividades'});
-      saveDB(db); toast('Interesse enviado! Aguardando resposta.'); render();
-    }});
+const VISITOR_BLOCKED = ['interest','accept','reject-act','start-code','validar-codigo','finish-act','confirm-hours','contest-hours',
+  'resolve-contest','refuse-contest','cancel-act','join-proj','publish','add-update','add-skill','remove-skill','remove-photo',
+  'conn-send','conn-accept','conn-decline','conn-cancel','conn-remove','submit-rate','rate','start-chat-public','chat-send','share-invite'];
+
+async function runApi(promise, successMsg) {
+  try {
+    await promise;
+    await loadState();
+    if (successMsg) toast(successMsg);
+    render();
+    return true;
+  } catch (err) {
+    toast(errorMessage(err), 'error');
+    return false;
+  }
+}
+
+function inviteUrl() {
+  return `${location.origin || ''}/register?ref=${db.invite?.code || db.me?.inviteCode || ''}`;
+}
+
+async function shareInvite() {
+  const url = inviteUrl();
+  const data = { title: 'Colabre', text: 'Participe do Colabre e troque tempo por tempo com a comunidade.', url };
+  if (navigator.share) {
+    try { await navigator.share(data); return; } catch (err) { if (err && err.name === 'AbortError') return; }
+  }
+  const ok = await copyText(url);
+  toast(ok ? 'Link de convite copiado!' : 'Não foi possível copiar. Selecione o link exibido.', ok ? 'success' : 'error');
+}
+
+function openContest(a) {
+  if (!a) return;
+  contestId = a.id;
+  $('#contest-hours').value = String(a.confirmedHours || a.plannedHours || 0.25);
+  $('#contest-reason').value = '';
+  $('#contest-error').textContent = '';
+  $('#contest-modal').classList.add('open');
+}
+function closeContestModal() { $('#contest-modal').classList.remove('open'); contestId = null; }
+
+document.addEventListener('click', async e => {
+  const demoEl = e.target.closest('[data-demo-action]');
+  if (demoEl) {
+    e.preventDefault();
+    try {
+      const res = await demoAction(demoEl.dataset.demoAction, demoEl);
+      if (res && res.toast) toast(res.toast, res.type || 'success');
+      if (!res || res.render !== false) render({ scroll: false });
+    } catch (err) { toast(errorMessage(err), 'error'); }
     return;
   }
-  if(a==='accept'){ const act=db.activities.find(x=>x.id===id); act.status='confirmada'; notify(db,act.interestedId,'Atividade confirmada',`Sua participação em "${db.opportunities.find(o=>o.id===act.oppId).title}" foi confirmada.`,{view:'atividades'}); saveDB(db); toast('Atividade confirmada!'); render(); return; }
-  if(a==='mark-done'){ const act=db.activities.find(x=>x.id===id); act.status='realizada'; saveDB(db); toast('Marcada como realizada. Agora confirme as horas.'); render(); return; }
-  if(a==='confirm-hours'){ const act=db.activities.find(x=>x.id===id); const iAmOwner=act.ownerId===u.id; act[iAmOwner?'ownerConfirmed':'interestedConfirmed']=true; act.confirmedHours=act.plannedHours;
-    if(act.ownerConfirmed&&act.interestedConfirmed){ act.status='concluida'; const ok=settleActivity(db,act); if(ok){ notify(db,act.ownerId,'Créditos movimentados','A atividade foi concluída e os créditos foram movimentados.',{view:'carteira'}); notify(db,act.interestedId,'Créditos movimentados','A atividade foi concluída e os créditos foram movimentados.',{view:'carteira'}); } }
-    saveDB(db); toast(act.status==='concluida'?'Concluída! Créditos movimentados.':'Confirmação registrada. Aguardando a outra pessoa.'); render(); return; }
-  if(a==='cancel-act'){ const act=db.activities.find(x=>x.id===id); act.status='cancelada'; saveDB(db); toast('Atividade cancelada.'); render(); return; }
-  if(a==='tab'){ ui.activityTab=el.dataset.tab; render(); return; }
-  if(a==='set-type'){ readCreateForm(); ui.create.type=el.dataset.type; render(); return; }
-  if(a==='step-back'){ readCreateForm(); ui.createStep--; render(); return; }
-  if(a==='step-next'){ if(!validateStep()) return; ui.createStep++; render(); return; }
-  if(a==='publish'){ readCreateForm(); if(ui.create.title.length<6||ui.create.description.length<15){toast('Revise título e descrição.','error');return;} publishOpp(); return; }
-  if(a==='join-proj'){ const p=db.projects.find(x=>x.id===id); if(p.participants.includes(u.id)){toast('Você já participa.');return;} p.participants.push(u.id); p.updates.push({date:new Date().toISOString().slice(0,10),text:`${u.name} entrou para o projeto.`}); notify(db,p.ownerId,'Novo participante',`${u.name} entrou em "${p.title}".`,{view:'projeto',id:p.id}); saveDB(db); toast('Bem-vindo(a) ao projeto!'); render(); return; }
-  if(a==='add-update'){ const p=db.projects.find(x=>x.id===id); if(!p) return; openUpdateModal(p); return; }
-  if(a==='add-skill'){ const s=$('#new-skill').value.trim(); if(!s) return; u.skills=u.skills||[]; if(u.skills.some(x=>x.toLowerCase()===s.toLowerCase())){toast('Essa habilidade já está no perfil.','error');return;} u.skills.push(s); saveDB(db); toast('Habilidade adicionada!'); render(); return; }
-  if(a==='remove-skill'){ const i=parseInt(el.dataset.index,10); const u2=me(); if(!Number.isInteger(i)||!u2.skills||!u2.skills[i]) return; const removed=u2.skills.splice(i,1)[0]; saveDB(db); toast(`Habilidade "${removed}" removida.`); render(); return; }
-  if(a==='share-project'){ const p=db.projects.find(x=>x.id===id); if(!p) return; shareProject(p); return; }
-  if(a==='read-note'){ db.notifications.find(n=>n.id===id).read=true; saveDB(db); render(); return; }
-  if(a==='read-all'){ db.notifications.filter(n=>n.userId===u.id).forEach(n=>n.read=true); saveDB(db); toast('Todas marcadas como lidas.'); render(); return; }
-  if(a==='open-note'){ const n=db.notifications.find(x=>x.id===id); n.read=true; saveDB(db); go(n.link.view,n.link.id); return; }
-  if(a==='reset'){ confirmModal({title:'Restaurar dados?',message:'Isto apaga alterações e restaura os dados demonstrativos iniciais.',confirmLabel:'Restaurar',onConfirm:()=>{ db=resetDB(); location.hash='#/login'; render(); toast('Dados restaurados.'); }}); return; }
-  if(a==='rate'){ ui.evalFor=id; render(); const b=document.querySelector('[data-star="3"]'); if(b) b.classList.add('on'); return; }
-  if(a==='goto-perfil-publico'){ go('perfil-publico', id); return; }
-  if(a==='criar-offer'){ ui.create.type='offer'; go('criar?type=offer'); render(); return; }
-  if(a==='criar-request'){ ui.create.type='request'; go('criar?type=request'); render(); return; }
-  if(a==='show-code'){ go('codigo-seguranca',id); return; }
-  if(a==='open-chat'){ go('chat',id); return; }
-  if(a==='start-chat-public'){
-    if(u.id===id) return;
-    db.chats=db.chats||[];
-    const act2=db.activities.find(x=>x.ownerId===u.id&&x.interestedId===id)||db.activities.find(x=>x.interestedId===u.id&&x.ownerId===id);
-    if(act2){
-      let c=db.chats.find(x=>x.activityId===act2.id);
-      if(!c){c={id:uid('c'),activityId:act2.id,messages:[]};db.chats.push(c);saveDB(db);}
-      go('chat',act2.id); return;
-    }
-    let direct=db.chats.find(c=>Array.isArray(c.participants)&&c.participants.includes(u.id)&&c.participants.includes(id));
-    if(!direct){direct={id:uid('c'),activityId:null,participants:[u.id,id],messages:[],createdAt:new Date().toISOString()};db.chats.push(direct);saveDB(db);}
-    go('chat',direct.id);
+
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  const a = el.dataset.action, id = el.dataset.id;
+  const u = me();
+
+  if (isVisitor() && VISITOR_BLOCKED.includes(a)) {
+    toast('Modo visitante: entre ou crie uma conta para participar.', 'error');
+    rememberPendingRoute(); authState.mode = 'login'; go('login'); return;
+  }
+
+  if (a === 'notif') { go('notificacoes'); return; }
+  if (a === 'theme') { toggleTheme(); render(); return; }
+  if (a === 'goto-dashboard') { go('dashboard'); return; }
+  if (a === 'goto-perfil') { go('perfil'); return; }
+  if (a === 'logout') { await logout(); return; }
+  if (a === 'demo') { try { sessionStorage.setItem('colabre_visitor','1'); } catch (_) {} clearInterval(window.__demoTicker); go('demo'); return; }
+  if (a === 'visitor') { enterVisitor(); return; }
+  if (a === 'back') { history.back(); return; }
+  if (a === 'opp-detail') { go('oportunidade', id); return; }
+  if (a === 'proj-detail') { go('projeto', id); return; }
+  if (a === 'clear-filters') { ui.explore = { q: '', type: 'todas', category: 'todas', modality: 'todas', duration: 'todas', sort: 'recentes' }; render(); return; }
+  if (a === 'goto-perfil-publico') { go('perfil-publico', id); return; }
+  if (a === 'criar-offer') { ui.create.type = 'offer'; go('criar?type=offer'); render(); return; }
+  if (a === 'criar-request') { ui.create.type = 'request'; go('criar?type=request'); render(); return; }
+  if (a === 'tab') { ui.activityTab = el.dataset.tab; render(); return; }
+  if (a === 'set-type') { readCreateForm(); ui.create.type = el.dataset.type; render(); return; }
+  if (a === 'step-back') { readCreateForm(); ui.createStep--; render(); return; }
+  if (a === 'step-next') { if (!validateStep()) return; ui.createStep++; render(); return; }
+  if (a === 'publish') { readCreateForm(); if (ui.create.title.length < 6 || ui.create.description.length < 15) { toast('Revise título e descrição.', 'error'); return; } publishOpp(); return; }
+  if (a === 'share-project') { const p = db.projects.find(x => x.id === id); if (p) shareProject(p); return; }
+  if (a === 'add-update') { const p = db.projects.find(x => x.id === id); if (p) openUpdateModal(p); return; }
+  if (a === 'rate') { ui.evalFor = id; render(); return; }
+  if (a === 'open-chat') { go('chat', id); return; }
+  if (a === 'start-code') { go('codigo-seguranca', id); return; }
+  if (a === 'copy-invite') {
+    const ok = await copyText(inviteUrl());
+    toast(ok ? 'Link de convite copiado!' : 'Não foi possível copiar o link.', ok ? 'success' : 'error');
     return;
   }
-  if(a==='chat-send'){ const input=$('#chat-msg'); const txt=input.value.trim(); if(!txt) return;
-    const act3=db.activities.find(x=>x.id===id);
-    let chat=act3?db.chats?.find(c=>c.activityId===id):db.chats?.find(c=>c.id===id);
-    if(!chat){chat={id:uid('c'),activityId:id,messages:[]};db.chats.push(chat);}
-    chat.messages.push({id:uid('m'),senderId:db.currentUserId,text:txt,date:new Date().toISOString()});
-    input.value=''; saveDB(db); renderChatMessage(chat.id, chat.messages[chat.messages.length-1]);
-    const w=document.getElementById('chat-window');if(w){w.scrollTop=w.scrollHeight;} return; }
-  if(a==='validar-codigo'){ const act4=db.activities.find(x=>x.id===id); if(!act4) return; const sc=db.securityCodes?.find(s=>s.activityId===id); if(!sc){$('#sc-error').textContent='Nenhum código gerado.';return;} const digits=[1,2,3,4,5,6].map(i=>$(`#sc-digit-${i}`).value).join(''); if(!digits||digits.length<4){$('#sc-error').textContent='Informe pelo menos 4 dígitos.';return;} if(digits===sc.code&&!sc.used){sc.used=true; act4.codeUsed=true; const iAmOwner=act4.ownerId===db.currentUserId; act4[iAmOwner?'interestedConfirmed':'ownerConfirmed']=true; saveDB(db); toast('Código validado! Agora você pode confirmar as horas.'); render();} else {$('#sc-error').textContent='Código incorreto ou já utilizado.'; [1,2,3,4,5,6].forEach(i=>{const d=$(`#sc-digit-${i}`);d.classList.add('error');setTimeout(()=>d.classList.remove('error'),400);}); } return; }
-  if(a==='gerar-codigo'){ const act5=db.activities.find(x=>x.id===id); if(!act5) return; const code=Math.floor(100000+Math.random()*900000).toString().slice(0,6); let sc=db.securityCodes?.find(s=>s.activityId===id); if(sc){sc.code=code;sc.used=false;}else{sc={id:uid('sc'),activityId:id,code,used:false,createdAt:new Date().toISOString()};db.securityCodes.push(sc);} act5.securityCode=code; saveDB(db); toast('Código gerado! Compartilhe com o outro participante.'); render(); return; }
-  if(a==='demo-simular-interesse'){ const demoOpp=db.opportunities.find(o=>o.ownerId==='u1'&&o.status==='published'); if(!demoOpp){toast('Nenhuma oferta da conta demo para simular.','error');return;} const existing=db.activities.find(a=>a.oppId===demoOpp.id&&a.interestedId!=='u1'); if(existing){toast('Já há interesse nesta oferta.','error');return;} db.activities.push({id:uid('a'),oppId:demoOpp.id,ownerId:'u1',interestedId:'u2',status:'interesse',plannedHours:demoOpp.durationHours,confirmedHours:0,ownerConfirmed:false,interestedConfirmed:false,credited:false,createdAt:new Date().toISOString().slice(0,10),note:'Simulação: Carlos Mendes demonstrou interesse.',securityCode:'',codeUsed:false,ratedBy:{},chatOpened:false}); notify(db,'u1','Novo interesse (simulação)','Carlos Mendes demonstrou interesse em seu trabalho.',{view:'atividades'}); saveDB(db); toast('Simulação: Carlos Mendes demonstrou interesse!'); render(); return; }
-  if(a==='demo-fluxo-completo'){ const demoOpp=db.opportunities.find(o=>o.ownerId==='u1'&&o.status==='published'); if(!demoOpp){toast('Nenhuma oferta da conta demo para simular.','error');return;} let actDemo=db.activities.find(a=>a.oppId===demoOpp.id&&a.interestedId==='u2'); if(!actDemo){actDemo={id:uid('a'),oppId:demoOpp.id,ownerId:'u1',interestedId:'u2',status:'interesse',plannedHours:demoOpp.durationHours,confirmedHours:0,ownerConfirmed:false,interestedConfirmed:false,credited:false,createdAt:new Date().toISOString().slice(0,10),note:'Simulação fluxo completo.',securityCode:'',codeUsed:false,ratedBy:{},chatOpened:false};db.activities.push(actDemo);} actDemo.status='confirmada'; let sc=db.securityCodes.find(s=>s.activityId===actDemo.id); if(!sc){sc={id:uid('sc'),activityId:actDemo.id,code:Math.floor(100000+Math.random()*900000).toString().slice(0,6),used:false,createdAt:new Date().toISOString()};db.securityCodes.push(sc);} actDemo.securityCode=sc.code; sc.used=true; actDemo.codeUsed=true; const iAmOwner=actDemo.ownerId==='u1'; actDemo[iAmOwner?'interestedConfirmed':'ownerConfirmed']=true; actDemo.ownerConfirmed=true; actDemo.interestedConfirmed=true; actDemo.status='concluida'; actDemo.confirmedHours=actDemo.plannedHours; settleActivity(db,actDemo); db.chats.push({id:uid('c'),activityId:actDemo.id,messages:[{id:uid('m'),senderId:'u2',text:'Olá! Gostaria de agendar a aula.',date:new Date().toISOString()},{id:uid('m'),senderId:'u1',text:'Oi! Pode ser sábado às 10h?',date:new Date().toISOString()},{id:uid('m'),senderId:'u2',text:'Perfeito, confirmado!',date:new Date().toISOString()}]}); actDemo.ratedBy={}; actDemo.ratedBy['u1']={stars:5,comment:'Ótimo aluno!',date:new Date().toISOString().slice(0,10)}; actDemo.ratedBy['u2']={stars:5,comment:'Excelente professora!',date:new Date().toISOString().slice(0,10)}; const otherId=actDemo.ownerId==='u1'?actDemo.interestedId:actDemo.ownerId; const allRatings=db.activities.filter(x=>x.ratedBy&&x.ratedBy[otherId]).map(x=>x.ratedBy[otherId].stars); const avg=allRatings.reduce((s,x)=>s+x,0)/allRatings.length; const otherUser=userById(otherId); otherUser.ratingAvg=Math.round(avg*10)/10; otherUser.ratingsCount=allRatings.length; saveDB(db); toast('Fluxo completo simulado com sucesso! Créditos movimentados e avaliações registradas.'); render(); return; }
+  if (a === 'share-invite' || a === 'invite-person') { await shareInvite(); return; }
+
+  if (a === 'remove-photo') { await runApi(api.del('/api/profile/photo'), 'Foto de perfil removida.'); return; }
+
+  if (a === 'interest') {
+    const opp = db.opportunities.find(o => o.id === id); if (!opp) return;
+    const owner = userById(opp.ownerId);
+    confirmModal({ title: 'Confirmar interesse', message: `Você demonstra interesse em "${opp.title}"? A atividade só será confirmada após o aceite de ${owner.name}.`, confirmLabel: 'Confirmar interesse', onConfirm: () => runApi(api.post(`/api/opportunities/${encodeURIComponent(id)}/interest`), 'Interesse enviado! Aguardando resposta.') });
+    return;
+  }
+  if (a === 'accept') {
+    confirmModal({ title: 'Aceitar interesse', message: 'Ao aceitar, a atividade passa para o estado Aceita. O solicitante receberá o código de início.', confirmLabel: 'Aceitar', onConfirm: () => runApi(api.post(`/api/activities/${encodeURIComponent(id)}/accept`), 'Atividade aceita. Código de início liberado para o solicitante.') });
+    return;
+  }
+  if (a === 'reject-act') {
+    confirmModal({ title: 'Recusar interesse', message: 'A atividade será cancelada e a outra pessoa será notificada.', confirmLabel: 'Recusar', onConfirm: () => runApi(api.post(`/api/activities/${encodeURIComponent(id)}/reject`), 'Interesse recusado.') });
+    return;
+  }
+  if (a === 'cancel-act') {
+    confirmModal({ title: 'Cancelar atividade', message: 'A atividade será cancelada. Nenhum crédito foi movimentado.', confirmLabel: 'Cancelar atividade', onConfirm: () => runApi(api.post(`/api/activities/${encodeURIComponent(id)}/cancel`), 'Atividade cancelada.') });
+    return;
+  }
+  if (a === 'finish-act') {
+    confirmModal({ title: 'Finalizar atividade', message: 'O horário de término será registrado no servidor e o solicitante precisará confirmar o tempo. Créditos só são movimentados após a confirmação.', confirmLabel: 'Finalizar', onConfirm: () => runApi(api.post(`/api/activities/${encodeURIComponent(id)}/finish`), 'Atividade finalizada. Aguardando confirmação do solicitante.') });
+    return;
+  }
+  if (a === 'confirm-hours') {
+    const act = db.activities.find(x => x.id === id); if (!act) return;
+    const hours = act.confirmedHours || act.plannedHours;
+    confirmModal({ title: 'Confirmar tempo e créditos', message: `Confirmar ${fmtHoursDesc(hours)} e transferir ${fmtCredits(hours)} crédito(s) para quem prestou a ajuda?`, confirmLabel: 'Confirmar e pagar', onConfirm: () => runApi(api.post(`/api/activities/${encodeURIComponent(id)}/confirm`), 'Atividade concluída e créditos transferidos.') });
+    return;
+  }
+  if (a === 'contest-hours') { const act = db.activities.find(x => x.id === id); openContest(act); return; }
+  if (a === 'resolve-contest') {
+    const act = db.activities.find(x => x.id === id); if (!act) return;
+    confirmModal({ title: 'Aceitar tempo proposto', message: `Aceitar ${fmtHoursDesc(act.proposedHours)} e liberar os créditos?`, confirmLabel: 'Aceitar proposta', onConfirm: () => runApi(api.post(`/api/activities/${encodeURIComponent(id)}/resolve`, { accept: true }), 'Proposta aceita e créditos transferidos.') });
+    return;
+  }
+  if (a === 'refuse-contest') { await runApi(api.post(`/api/activities/${encodeURIComponent(id)}/resolve`, { accept: false }), 'Proposta recusada. O solicitante poderá revisar.'); return; }
+
+  if (a === 'validar-codigo') {
+    const digits = [1,2,3,4].map(i => $(`#sc-digit-${i}`)?.value || '').join('');
+    if (digits.length !== 4) { const e2 = $('#sc-error'); if (e2) e2.textContent = 'Informe os 4 dígitos do código.'; return; }
+    const btn = el; btn.disabled = true;
+    try {
+      await api.post(`/api/activities/${encodeURIComponent(id)}/start`, { code: digits });
+      await loadState();
+      toast('Código válido! Atividade iniciada e cronômetro registrado.');
+      go('atividades'); render();
+    } catch (err) {
+      const e2 = $('#sc-error'); if (e2) e2.textContent = errorMessage(err);
+      $$('#security-code-digits .security-digit').forEach(d => { d.classList.add('error'); setTimeout(() => d.classList.remove('error'), 500); });
+    } finally { btn.disabled = false; }
+    return;
+  }
+
+  if (a === 'join-proj') { await runApi(api.post(`/api/projects/${encodeURIComponent(id)}/join`), 'Bem-vindo(a) ao projeto!'); return; }
+  if (a === 'add-skill') {
+    const name = $('#new-skill')?.value.trim(); if (!name) return;
+    await runApi(api.post('/api/profile/skills', { name }), 'Habilidade adicionada!');
+    return;
+  }
+  if (a === 'remove-skill') {
+    const i = parseInt(el.dataset.index, 10); const skill = (u.skills || [])[i];
+    if (!skill) return;
+    await runApi(api.del(`/api/profile/skills/${encodeURIComponent(skill)}`), `Habilidade "${skill}" removida.`);
+    return;
+  }
+
+  if (a === 'read-note') { await runApi(api.post('/api/notifications/read', { id }), null); return; }
+  if (a === 'read-all') { await runApi(api.post('/api/notifications/read-all'), 'Todas marcadas como lidas.'); return; }
+  if (a === 'open-note') {
+    const n = db.notifications.find(x => x.id === id);
+    try { await api.post('/api/notifications/read', { id }); await loadState(); } catch (_) {}
+    if (n && n.link) go(n.link.view, n.link.id); else render();
+    return;
+  }
+
+  if (a === 'conn-send') {
+    const target = userById(id);
+    confirmModal({ title: 'Adicionar conexão', message: `Enviar uma solicitação de conexão para ${target.name}?`, confirmLabel: 'Enviar solicitação', onConfirm: () => runApi(api.post('/api/connections', { userId: id }), 'Solicitação de conexão enviada!') });
+    return;
+  }
+  if (a === 'conn-accept') { await runApi(api.post(`/api/connections/${encodeURIComponent(id)}/accept`), 'Conexão aceita!'); return; }
+  if (a === 'conn-decline') { await runApi(api.post(`/api/connections/${encodeURIComponent(id)}/decline`), 'Solicitação recusada.'); return; }
+  if (a === 'conn-cancel') { await runApi(api.post(`/api/connections/${encodeURIComponent(id)}/cancel`), 'Solicitação cancelada.'); return; }
+  if (a === 'conn-remove') {
+    confirmModal({ title: 'Remover conexão', message: 'A conexão será removida para os dois participantes.', confirmLabel: 'Remover', onConfirm: () => runApi(api.del(`/api/connections/${encodeURIComponent(id)}`), 'Conexão removida.') });
+    return;
+  }
+
+  if (a === 'start-chat-public') {
+    if (db.currentUserId === id) return;
+    try {
+      const res = await api.post('/api/chats', { userId: id });
+      await loadState();
+      go('chat', res.id); render();
+    } catch (err) { toast(errorMessage(err), 'error'); }
+    return;
+  }
+  if (a === 'chat-send') {
+    const input = $('#chat-msg'); const txt = input?.value.trim(); if (!txt) return;
+    input.value = '';
+    try {
+      await api.post(`/api/chats/${encodeURIComponent(id)}/messages`, { text: txt });
+      await loadState(); render();
+    } catch (err) { input.value = txt; toast(errorMessage(err), 'error'); }
+    return;
+  }
 });
-document.addEventListener('click',e=>{ const s=e.target.closest('[data-star]'); if(!s) return; const n=+s.dataset.star; $$('[data-star]').forEach(b=>b.classList.toggle('on',+b.dataset.star<=n)); s.dataset.val=n; });
-document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-action="submit-rate"]'); if(!b) return;
-  const act=db.activities.find(x=>x.id===b.dataset.id); if(!act) return;
-  const starsEl=document.querySelectorAll('.rate button.on'); const stars = starsEl.length>0 ? +starsEl[starsEl.length-1].dataset.star : 3; const comment=$('#rate-comment')?.value.trim()||'';
-  const prev=act.ratedBy?.[db.currentUserId];
-  if(!act.ratedBy) act.ratedBy={};
-  act.ratedBy[db.currentUserId]={stars,comment,date:new Date().toISOString().slice(0,10)};
-  const otherId=act.ownerId===db.currentUserId?act.interestedId:act.ownerId; const other=userById(otherId);
-  addRatingToUser(other, stars, prev?Number(prev.stars):null);
-  saveDB(db); toast('Avaliação enviada! Obrigado.'); render();
+
+document.addEventListener('click', e => { const s = e.target.closest('[data-star]'); if (!s) return; const n = +s.dataset.star; $$('[data-star]').forEach(b => b.classList.toggle('on', +b.dataset.star <= n)); s.dataset.val = n; });
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-action="submit-rate"]'); if (!b) return;
+  const act = db.activities.find(x => x.id === b.dataset.id); if (!act) return;
+  const starsEl = document.querySelectorAll('.rate button.on');
+  const stars = starsEl.length > 0 ? +starsEl[starsEl.length - 1].dataset.star : 0;
+  if (stars < 1) { toast('Escolha de 1 a 5 estrelas.', 'error'); return; }
+  const comment = $('#rate-comment')?.value.trim() || '';
+  b.disabled = true;
+  try {
+    await api.post('/api/ratings', { activityId: act.id, stars, comment });
+    await loadState();
+    ui.evalFor = null;
+    toast('Avaliação enviada! Obrigado.');
+    render();
+  } catch (err) { toast(errorMessage(err), 'error'); b.disabled = false; }
 });
-$('#modal-cancel').addEventListener('click',closeModal);
-$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
-$('#update-cancel').addEventListener('click',closeUpdateModal);
-$('#update-hours').addEventListener('input',updatePreview);
-$('#update-save').addEventListener('click',saveProjectUpdate);
-$('#update-modal').addEventListener('click',e=>{ if(e.target.id==='update-modal') closeUpdateModal(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('#update-modal').classList.contains('open')) closeUpdateModal(); });
-window.addEventListener('hashchange',render);
-render();
+
+let contestId = null;
+$('#modal-cancel').addEventListener('click', closeModal);
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+$('#update-cancel').addEventListener('click', closeUpdateModal);
+$('#update-hours').addEventListener('input', updatePreview);
+$('#update-save').addEventListener('click', saveProjectUpdate);
+$('#update-modal').addEventListener('click', e => { if (e.target.id === 'update-modal') closeUpdateModal(); });
+$('#contest-cancel').addEventListener('click', closeContestModal);
+$('#contest-modal').addEventListener('click', e => { if (e.target.id === 'contest-modal') closeContestModal(); });
+$('#contest-save').addEventListener('click', async () => {
+  if (!contestId) return;
+  const hours = parseFloat($('#contest-hours').value) || 0;
+  const reason = $('#contest-reason').value.trim();
+  if (hours < 0.25 || hours > 24) { $('#contest-error').textContent = 'Informe um tempo entre 15 minutos e 24 horas.'; return; }
+  if (reason.length < 5) { $('#contest-error').textContent = 'Explique brevemente o motivo da contestação.'; return; }
+  const btn = $('#contest-save'); btn.disabled = true;
+  try {
+    await api.post(`/api/activities/${encodeURIComponent(contestId)}/contest`, { proposedHours: hours, reason });
+    await loadState(); closeContestModal(); toast('Contestação registrada. Os créditos ficam bloqueados até a resolução.'); render();
+  } catch (err) { $('#contest-error').textContent = errorMessage(err); }
+  finally { btn.disabled = false; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#update-modal').classList.contains('open')) closeUpdateModal();
+  if (e.key === 'Escape' && $('#contest-modal').classList.contains('open')) closeContestModal();
+});
+window.addEventListener('hashchange', render);
+
+window.__colabreDemoRefresh = () => { if (parseRoute().view === 'demo') render({ scroll: false }); };
+window.__colabre = { render, toast, go, confirmModal, copyText };
+
+(async function boot() {
+  try {
+    await loadState();
+  } catch (err) {
+    $('#root').innerHTML = `<div style="padding:32px;font-family:system-ui,sans-serif;max-width:620px;margin:0 auto">
+      <h1 style="color:#3D5145">Colabre</h1>
+      <p>Não foi possível conectar ao servidor.</p>
+      <p class="text-muted">Inicie o backend com <code>npm start</code> e acesse <code>http://localhost:8100</code>. Se você abriu o arquivo diretamente, o navegador não consegue acessar a API.</p>
+      <p class="kv">${esc(errorMessage(err))}</p></div>`;
+    return;
+  }
+  render();
+  startSse();
+})();

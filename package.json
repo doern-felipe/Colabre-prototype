@@ -1,0 +1,15 @@
+{
+  "name": "colabre",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Colabre — plataforma de colaboração comunitária com backend real, autenticação e sincronização entre dispositivos.",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "seed": "node server/seed.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
